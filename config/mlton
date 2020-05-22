@@ -1,0 +1,3 @@
+COMPILER=mlton
+FLAGS="-codegen c"
+COMPAT=mlton

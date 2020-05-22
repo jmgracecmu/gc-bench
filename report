@@ -1,0 +1,184 @@
+#!/usr/bin/python
+
+import json
+import sys
+import re
+import copy
+import os
+from prettytable import PrettyTable
+
+def displayTag(t):
+  return t
+
+def json_careful_loads(s):
+  try:
+    return json.loads(s)
+  except Exception as e:
+    sys.stderr.write("[ERR] Error while parsing json: {}\n".format(e))
+    sys.exit(1)
+
+def json_careful_readlines(f):
+  return [ json_careful_loads(line.rstrip('\n')) for line in f ]
+
+def safeInsert(dict, key, value):
+  if key not in dict:
+    dict[key] = value
+  else:
+    sys.stderr.write("[WARN] Key {} is already in use; trying _{} instead.\n".format(key))
+    safeInsert(dict, "_" + key, value)
+
+def reCompile(exp):
+  return re.compile(exp, re.MULTILINE)
+
+statsPatterns = \
+  [ ("time", int, reCompile(r"^wall\s+(\d+)$"))
+  , ("space", int, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
+  ]
+
+renameConfig = {
+  'mlton': 'mlton',
+  'mpl': 'mpl'
+}
+
+foundTags = set()
+foundProcs = set()
+
+def parseStats(row):
+  newRow = copy.deepcopy(row)
+  for (name, convert, pat) in statsPatterns:
+    m = pat.search(newRow['stdout'] + newRow['stderr'])
+    if m:
+      safeInsert(newRow, name, convert(m.group(1)))
+  newRow['procs'] = int(newRow.get('procs', '1'))
+  newRow['config'] = renameConfig[row['config']]
+
+  try:
+    newRow['space'] = float(newRow['space'])
+  except KeyError:
+    pass
+
+  try:
+    newRow['time'] = float(newRow['elapsed'])
+  except KeyError:
+    pass
+
+  foundTags.add(newRow['tag'])
+  foundProcs.add(newRow['procs'])
+
+  return newRow
+
+def averageTime(data, config, tag, procs):
+  times = []
+  for row in data:
+    if row['config'] == config and row['tag'] == tag and row['procs'] == procs and 'time' in row:
+      times.append(row['time'])
+  try:
+    return sum(times) / len(times)
+  except:
+    raise ValueError('Error processing average time of config={}, tag={}, procs={}'.format(config, tag, procs))
+
+def averageSpace(data, config, tag, procs):
+  sp = []
+  for row in data:
+    if row['config'] == config and row['tag'] == tag and row['procs'] == procs and 'space' in row:
+      sp.append(row['space'])
+  try:
+    return sum(sp) / len(sp)
+  except:
+    raise ValueError('Error processing average space of config={}, tag={}, procs={}'.format(config, tag, procs))
+
+def tm(t):
+  # if t > 10.0:
+  #   return int(round(t))
+  try:
+    if t >= 1.0:
+      return round(t, 1)
+    elif t >= 0.1:
+      return round(t, 2)
+    else:
+      return round(t, 3)
+  except TypeError:
+    print ("[ERR] Got type error trying to round {}".format(repr(t)))
+    return None
+
+def noLeadZero(t):
+  if t < 1:
+    return str(t).replace('0', '', 1)
+  return str(t)
+
+def sp(kb):
+  num = kb
+  for unit in ['K','M','G']:
+    if num < 1000:
+      return "%3.1f %s" % (num, unit)
+    num = num / 1000
+  return "%3.1f %s" % (num, 'T')
+
+# =========================================================================
+
+# if len(sys.argv) < 4:
+#   sys.stderr.write("[ERR] too few arguments\n")
+#   sys.stderr.write("Usage: tables.py timingResults spaceResults workingSetResults\n")
+#   sys.exit(1)
+with open(sys.argv[1], 'r') as data:
+  resultsData = json_careful_readlines(data)
+
+D = [ parseStats(row) for row in resultsData ]
+
+P = sorted(list(foundProcs))
+
+headers = ['Benchmark', 'MLton'] + [ 'MPL({})'.format(p) for p in P ]
+timeTable = PrettyTable(headers)
+for tag in foundTags:
+  tMLton = tm(averageTime(D, 'mlton', tag, 1))
+  # tMPL1 = tm(averageTime(D, 'mpl', tag, 1))
+  # overhead = tm(tMPL1 / tMLton)
+  # rMLton = sp(averageSpace(D, 'mlton', tag, 1))
+  thisRow = [tag, tMLton] \
+          + [ tm(averageTime(D, 'mpl', tag, p)) for p in P ]
+  timeTable.add_row(thisRow)
+
+print("TIMINGS")
+print(timeTable)
+print("")
+
+headers = ['Benchmark', 'MLton'] + [ 'MPL({})'.format(p) for p in P ]
+spaceTable = PrettyTable(headers)
+for tag in foundTags:
+  rMLton = sp(averageSpace(D, 'mlton', tag, 1))
+  # tMPL1 = sp(averageSpace(D, 'mpl', tag, 1))
+  # overhead = tm(tMPL1 / tMLton)
+  # rMLton = sp(averageSpace(D, 'mlton', tag, 1))
+  thisRow = [tag, rMLton] \
+          + [ sp(averageSpace(D, 'mpl', tag, p)) for p in P ]
+  spaceTable.add_row(thisRow)
+
+print("MAX RESIDENCY")
+print(spaceTable)
+print("")
+
+maxp = max(foundProcs)
+
+headers = ['Benchmark',
+           'Overhead',
+           'Speedup({})'.format(maxp),
+           'Blowup(1)',
+           'Blowup({})'.format(maxp)]
+summaryTable = PrettyTable(headers)
+for tag in foundTags:
+  tMLton = tm(averageTime(D, 'mlton', tag, 1))
+  tMPL1 = tm(averageTime(D, 'mpl', tag, 1))
+  tMPLp = tm(averageTime(D, 'mpl', tag, maxp))
+  rMLton = averageSpace(D, 'mlton', tag, 1)
+  rMPL1 = averageSpace(D, 'mpl', tag, 1)
+  rMPLp = averageSpace(D, 'mpl', tag, maxp)
+  overhead = tm(tMPL1 / tMLton)
+  speedup = tm(tMLton / tMPLp)
+  rOverhead1 = tm(rMPL1 / rMLton)
+  rOverheadp = tm(rMPLp / rMLton)
+  summaryTable.add_row([tag, overhead, speedup, rOverhead1, rOverheadp])
+
+print("SUMMARY")
+print(summaryTable)
+print("Blowup(p) = (MPL(p) space) / (MLton space)")
+print("")

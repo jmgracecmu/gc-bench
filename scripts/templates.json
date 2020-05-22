@@ -1,0 +1,8 @@
+[
+  { "match": { "config": "mpl" }
+  , "template": "/usr/bin/time -v bin/<bench>.<config>.bin @mpl <procs?procs {} >-- <args?{} ><args1?{} ><args2?{}><tag?>"
+  }
+, { "match": { "config": "mlton" }
+  , "template": "/usr/bin/time -v bin/<bench>.<config>.bin <args?{} ><args1?{} ><args2?{}><tag?>"
+  }
+]

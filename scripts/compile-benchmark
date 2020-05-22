@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+usage() {
+    cat <<EOF
+$0 [options] -- [compiler args]
+options:
+  -verbose              be more verbose
+  -log PATH             where to dump compilation results
+  -benchmark DIR        which benchmark to build
+  -output PATH          name of the output file
+  -config NAME          which config file to use
+EOF
+}
+
+# Parse command-line
+
+verbose=false
+config=
+log=
+output=
+benchmark=
+
+while [ $# -ge 1 ]
+do
+    opt="$1"
+    shift
+    case $opt in
+        -verbose)
+            verbose=true
+            ;;
+        -log)
+            log="$1"
+            shift
+            ;;
+        -benchmark)
+            benchmark="$1"
+            shift
+            ;;
+        -output)
+            output="$1"
+            shift
+            ;;
+        -config)
+            config="$1"
+            shift
+            ;;
+        -runtime)
+            runtime="$1"
+            shift
+            ;;
+        --)
+            break
+            ;;
+        *)
+            echo "[ERR] unknown option \"$opt\"" >&2
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# Sanity checks
+
+if [ "$benchmark" = "" ]
+then
+    echo "[ERR] no benchmark selected." >&2
+    exit 1
+fi
+
+if [ "$config" = "localhost" ]
+then
+     config=`hostname`
+fi
+
+configfile=$(readlink -f $DIR/../config/$config)
+
+if [ ! -f $configfile ]
+then
+    echo "[ERR] $configfile does not exist" >&2
+    exit 1
+fi
+
+. $configfile
+
+cmd="$COMPILER -mlb-path-var \"COMPAT $COMPAT\" $FLAGS"
+
+# cmd="$($DIR/compiler-path.py $compiler) -mlb-path-var \"COMPILER $compiler\""
+
+if [ "$output" = "" ]
+then
+    output=$benchmark
+fi
+
+cmd="$cmd -output $output"
+
+# case "$runtime" in
+#     normal)
+#         ;;
+#     lto)
+#         cmd="$cmd -lto-runtime true"
+#         ;;
+#     trace)
+#         cmd="$cmd -trace-runtime true"
+#         ;;
+#     debug)
+#         cmd="$cmd -debug true -debug-runtime true"
+#         ;;
+#     *)
+#         echo "[WARN] unknown runtime \"$runtime\" >&2"
+#         ;;
+# esac
+
+if [ ! -f "bench/$benchmark/$benchmark.mlb" ]
+then
+    echo "[WARN] bench/$benchmark/$benchmark.mlb does not exist" >&2
+fi
+
+cmd="$cmd $* bench/$benchmark/$benchmark.mlb"
+
+# Timing
+
+if [ "$log" != "" ]
+then
+    if [ ! -x "/usr/bin/time" ]
+    then
+        echo "[ERR] /usr/bin/time not found" >&2
+        exit 1
+    fi
+    timeres=$(mktemp)
+    cmd="/usr/bin/time -f \"%e\" --output=$timeres $cmd"
+fi
+
+# Execute
+
+if [ $verbose = "true" ]
+then
+    echo "[INFO] $cmd"
+fi
+
+eval $cmd
+res=$?
+
+if [ $verbose = "true" ]
+then
+    if [ $res -eq 0 ]
+    then
+        echo "[INFO] compilation succeeded"
+    else
+        echo "[WARN] compilation failed"
+    fi
+fi
+
+if [ "$log" = "" ]
+then
+    exit $res
+else
+    time=$(tail -n 1 $timeres)
+    rm -f $timeres
+    echo "$output,$benchmark,$compiler,$runtime,$time,$res" >> $log
+fi

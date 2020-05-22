@@ -1,0 +1,11 @@
+local
+  $(SML_LIB)/basis/basis.mlb
+  local
+    $(SML_LIB)/basis/build/sources.mlb
+  in
+    structure ArrayExtra = Array
+  end
+  ForkJoin.mlton.sml
+in
+  structure ForkJoin
+end
