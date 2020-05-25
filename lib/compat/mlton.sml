@@ -10,3 +10,10 @@ struct
     if lo >= hi then () else (f lo; parfor g (lo+1, hi) f)
   fun alloc n = ArrayExtra.alloc n
 end
+
+structure Concurrency =
+struct
+  val numberOfProcessors = 1
+
+  (* val compareAndSwap = ... *)
+end

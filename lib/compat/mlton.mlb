@@ -5,7 +5,9 @@ local
   in
     structure ArrayExtra = Array
   end
-  ForkJoin.mlton.sml
+
+  mlton.sml
 in
   structure ForkJoin
+  structure Concurrency
 end

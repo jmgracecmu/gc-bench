@@ -1,6 +1,6 @@
 $(SML_LIB)/basis/basis.mlb
 
-fork-join.$(COMPAT).mlb
+compat/$(COMPAT).mlb
 
 CommandLineArgs.sml
 Util.sml
