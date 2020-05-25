@@ -13,7 +13,9 @@
 structure Quicksort:
 sig
   type 'a seq = 'a ArraySlice.slice
+  val sortInPlaceG : int -> ('a * 'a -> order) -> 'a seq -> unit
   val sortInPlace : ('a * 'a -> order) -> 'a seq -> unit
+  val sortG : int -> ('a * 'a -> order) -> 'a seq -> 'a seq
   val sort : ('a * 'a -> order) -> 'a seq -> 'a seq
 end =
 struct
@@ -23,9 +25,7 @@ struct
   structure A = Array
   structure AS = ArraySlice
 
-  val grainsize = 8192
-
-  fun sortRange (array, start, n, compare) =
+  fun sortRange grainsize (array, start, n, compare) =
     let
       val sub = A.sub
       val update = A.update
@@ -111,18 +111,23 @@ struct
   in qsort (start,n) end
 
   (* sorts an array slice in place *)
-  fun sortInPlace compare aslice =
+  fun sortInPlaceG grainsize compare aslice =
     let val (a, i, n) = AS.base aslice
-    in sortRange (a, i, n, compare)
+    in sortRange grainsize (a, i, n, compare)
     end
 
-  fun sort compare aslice =
+  fun sortG grainsize compare aslice =
     let
       val result = AS.full (ForkJoin.alloc (AS.length aslice))
     in
       Util.foreach aslice (fn (i, x) => AS.update (result, i, x));
-      sortInPlace compare result;
+      sortInPlaceG grainsize compare result;
       result
     end
+
+  val grainsize = 8192
+
+  fun sortInPlace c s = sortInPlaceG grainsize c s
+  fun sort c s = sortG grainsize c s
 
 end

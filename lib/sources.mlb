@@ -15,6 +15,7 @@ TreeMatrix.sml
 
 SampleSort.sml
 CountingSort.sml
+RadixSort.sml
 
 Geometry2D.sml
 

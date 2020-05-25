@@ -68,5 +68,12 @@
     "config": ["mpl", "mlton"],
     "procs": ["1", "2", "4", "8", "16"],
     "args": ["inputs/words64.txt --verbose --no-output"]
+  },
+  {
+    "tag": ["suffix-array"],
+    "bench": ["suffix-array"],
+    "config": ["mpl", "mlton"],
+    "procs": ["1", "2", "4", "8", "16"],
+    "args": ["--benchmark -N 10000000"]
   }
 ]
