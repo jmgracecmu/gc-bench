@@ -29,6 +29,11 @@ sig
            -> (int -> 'a)
            -> (int -> bool)
            -> 'a array
+
+  val tabFilter: grain
+              -> (int * int)
+              -> (int -> 'a option)
+              -> 'a array
 end =
 struct
 
@@ -148,6 +153,45 @@ struct
       parfor 1 (0, m) (fn i =>
         let val start = lo + i*k
         in filterSeq (start, Int.min (start+k, hi)) (nth offsets i)
+        end);
+      result
+    end
+
+  fun tabFilter grain (lo, hi) (f : int -> 'a option) =
+    let
+      val n = hi - lo
+      val k = grain
+      val m = 1 + (n-1) div k (* number of blocks *)
+      val tmp = allocate n
+
+      fun filterSeq (i,j,k) =
+        if (i >= j) then k
+        else case f i of
+           NONE => filterSeq(i+1, j, k)
+         | SOME v => (A.update(tmp, k, v); filterSeq(i+1, j, k+1))
+
+      val counts = tabulate 1 (0, m) (fn i =>
+        let val last = filterSeq (lo + i*k, lo + Int.min((i+1)*k, n), i*k)
+        in last - i*k
+        end)
+
+      val outOff = scan grain op+ 0 (0, m) (fn i => A.sub (counts, i))
+      val outSize = A.sub (outOff, m)
+
+      val result = allocate outSize
+    in
+      (* Choosing grain = n/outSize assumes that the blocks are all
+       * approximately the same amount full. We could do something more
+       * complex here, e.g. binary search to recursively split up the
+       * range into small pieces of all the same size. *)
+      parfor (n div (Int.max (outSize, 1))) (0, m) (fn i =>
+        let
+          val soff = i * k
+          val doff = A.sub (outOff, i)
+          val size = A.sub (outOff, i+1) - doff
+        in
+          Util.for (0, size) (fn j =>
+            A.update (result, doff+j, A.sub (tmp, soff+j)))
         end);
       result
     end

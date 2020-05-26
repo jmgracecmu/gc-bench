@@ -20,7 +20,21 @@ struct
     )
 
   fun positional () =
-    List.filter (not o String.isPrefix "-") (CommandLine.arguments ())
+    let
+      fun loop found rest =
+        case rest of
+          [] => List.rev found
+        | [x] => List.rev (if not (String.isPrefix "-" x) then x::found else found)
+        | x::y::rest' =>
+            if not (String.isPrefix "-" x) then
+              loop (x::found) (y::rest')
+            else if String.isPrefix "--" x then
+              loop found (y::rest')
+            else
+              loop found rest'
+    in
+      loop [] (CommandLine.arguments ())
+    end
 
   fun search key args =
     case args of

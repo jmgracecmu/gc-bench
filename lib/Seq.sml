@@ -23,6 +23,12 @@ struct
 
   fun map f s = tabulate (fn i => f (nth s i)) (length s)
 
+  fun iterate f b s =
+    SeqBasis.foldl f b (0, length s) (nth s)
+
+  fun foreach s f =
+    ForkJoin.parfor gran (0, length s) (fn i => f (i, nth s i))
+
   fun scan f b s =
     let
       val n = AS.length s

@@ -2,6 +2,8 @@ structure Util:
 sig
   val getTime: (unit -> 'a) -> ('a * Time.time)
 
+  val die: string -> 'a
+
   val hash64: Word64.word -> Word64.word
   val hash64_2: Word64.word -> Word64.word
   val hash32: Word32.word -> Word32.word
@@ -35,6 +37,12 @@ sig
   val loop: (int * int) -> 'a -> ('a * int -> 'a) -> 'a
 end =
 struct
+
+  fun die msg =
+    ( TextIO.output (TextIO.stdErr, msg ^ "\n")
+    ; TextIO.flushOut TextIO.stdErr
+    ; OS.Process.exit OS.Process.failure
+    )
 
   fun getTime f =
     let

@@ -19,7 +19,11 @@ RadixSort.sml
 
 Geometry2D.sml
 
-ReadFile.sml
+(* ReadFile.sml *)
 Tokenize.sml
+FindFirst.sml
+Parse.sml
+(* TabFilterTree.sml *)
+AdjacencyGraph.sml
 
 PPM.sml
