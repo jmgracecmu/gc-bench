@@ -48,7 +48,7 @@ struct
       open Posix.IO
 
       val bufferSize = 100000
-      val buffer = Word8ArrayExtra.alloc length
+      val buffer = Word8ArrayExtra.alloc bufferSize
       val result = ArrayExtra.alloc length
       (* val result = Word8ArrayExtra.alloc length *)
 

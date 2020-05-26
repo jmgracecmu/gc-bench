@@ -44,6 +44,8 @@ struct
     let
       fun isNewline i = (Seq.nth chars i = #"\n")
 
+      (* Computing newline positions takes up about half the time of parsing...
+       * Can we do this faster? *)
       val nlPos =
         AS.full (SeqBasis.filter 10000 (0, Seq.length chars) (fn i => i) isNewline)
       val numLines = Seq.length nlPos + 1
