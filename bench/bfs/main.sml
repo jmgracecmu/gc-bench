@@ -2,13 +2,23 @@ structure CLA = CommandLineArgs
 structure BFS = NondetBFS
 structure G = BFS.G
 
+val source = CLA.parseInt "source" 0
+val doCheck = CLA.parseFlag "check"
+
+(*
+val N = CLA.parseInt "N" 10000000
+val D = CLA.parseInt "D" 10
+
+val (graph, tm) = Util.getTime (fn _ => G.randSymmGraph N D)
+val _ = print ("generated graph in " ^ Time.fmt 4 tm ^ "s\n")
+val _ = print ("num vertices: " ^ Int.toString (G.numVertices graph) ^ "\n")
+val _ = print ("num edges: " ^ Int.toString (G.numEdges graph) ^ "\n")
+*)
+
 val filename =
   case CLA.positional () of
     [x] => x
   | _ => Util.die "missing filename"
-
-val source = CLA.parseInt "source" 0
-val doCheck = CLA.parseFlag "check"
 
 val (chars, tm) = Util.getTime (fn _ => ReadFile.contentsSeq filename)
 val _ = print ("read file in " ^ Time.fmt 4 tm ^ "s\n")

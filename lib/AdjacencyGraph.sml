@@ -132,4 +132,67 @@ struct
       p1 = 0w0 andalso p2 = 0w0
     end
 
+  fun fromSortedEdges sorted =
+    let
+      fun edgeInts (u, v) = (Vertex.toInt u, Vertex.toInt v)
+      val m = Seq.length sorted
+      val n =
+        1 + SeqBasis.reduce 10000 Int.max ~1 (0, m)
+            (Int.max o edgeInts o Seq.nth sorted)
+
+      fun k i = Vertex.toInt (#1 (Seq.nth sorted i))
+
+      val ends = Seq.tabulate (fn i => if i = n then m else 0) (n+1)
+      val _ = ForkJoin.parfor 10000 (0, m) (fn i =>
+        if i = m-1 then
+          AS.update (ends, k i, m)
+        else if k i <> k (i+1) then
+          AS.update (ends, k i, i+1)
+        else ())
+      val (offsets, _) = Seq.scan Int.max 0 ends
+
+      fun off i = Seq.nth offsets (i+1) - Seq.nth offsets i
+      val degrees = Seq.tabulate off n
+
+      val nbrs = Seq.map #2 sorted
+    in
+      (offsets, degrees, nbrs)
+    end
+
+  fun dedupEdges edges =
+    let
+      val sorted =
+        Mergesort.sort (fn ((u1,v1), (u2,v2)) =>
+          case Vertex.compare (u1, u2) of
+            EQUAL => Vertex.compare (v1, v2)
+          | other => other) edges
+    in
+      AS.full (SeqBasis.filter 5000 (0, Seq.length sorted) (Seq.nth sorted)
+        (fn i => i = 0 orelse Seq.nth sorted (i-1) <> Seq.nth sorted i))
+    end
+
+  fun randSymmGraph n d =
+    let
+      val m = Real.ceil (Real.fromInt n * Real.fromInt d / 2.0)
+
+      fun makeEdge i =
+        let
+          val u = (2 * i) div d
+          val v = Util.hash i mod (n-1)
+        in
+          (Vertex.fromInt u, Vertex.fromInt (if v < u then v else v+1))
+        end
+
+      val bothWays = ForkJoin.alloc (2*m)
+      val _ = ForkJoin.parfor 1000 (0, m) (fn i =>
+        let
+          val (u, v) = makeEdge i
+        in
+          A.update (bothWays, 2*i, (u,v));
+          A.update (bothWays, 2*i+1, (v,u))
+        end)
+    in
+      fromSortedEdges (dedupEdges (AS.full bothWays))
+    end
+
 end
