@@ -77,6 +77,13 @@
     "args": ["--benchmark -N 10000000"]
   },
   {
+    "tag": ["palindrome"],
+    "bench": ["palindrome"],
+    "config": ["mpl", "mlton"],
+    "procs": ["1", "2", "4", "8", "16"],
+    "args": ["-N 1000000"]
+  },
+  {
     "tag": ["quickhull"],
     "bench": ["quickhull"],
     "config": ["mpl", "mlton"],
