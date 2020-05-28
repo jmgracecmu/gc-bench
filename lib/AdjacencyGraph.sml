@@ -40,6 +40,20 @@ struct
     in Seq.length nbrs
     end
 
+  fun computeDegrees (N, M, offsets) =
+    AS.full (SeqBasis.tabulate 10000 (0, N) (fn i =>
+      let
+        val off = Seq.nth offsets i
+        val nextOff = if i+1 < N then Seq.nth offsets (i+1) else M
+        val deg = nextOff - off
+      in
+        if deg < 0 then
+          raise Fail ("AdjacencyGraph.computeDegrees: vertex " ^ Int.toString i
+                      ^ " has negative degree")
+        else
+          deg
+      end))
+
   fun parse chars =
     let
       fun isNewline i = (Seq.nth chars i = #"\n")
@@ -82,27 +96,131 @@ struct
         if numLines >= numVertices + numEdges + 3 then ()
         else raise Fail ("AdjacencyGraph: not enough offsets and/or edges to parse")
 
-      val offsets = SeqBasis.tabulate 1000 (0, numVertices)
-        (fn i => tryParse "edge offset" (3+i))
+      val offsets = AS.full (SeqBasis.tabulate 1000 (0, numVertices)
+        (fn i => tryParse "edge offset" (3+i)))
 
-      val neighbors = SeqBasis.tabulate 1000 (0, numEdges)
-        (fn i => tryParse "neighbor" (3+numVertices+i))
-
-      val degrees = SeqBasis.tabulate 10000 (0, numVertices) (fn i =>
-        let
-          val off = A.sub (offsets, i)
-          val nextOff =
-            if i+1 < numVertices then A.sub (offsets, i+1) else numEdges
-          val deg = nextOff - off
-        in
-          if deg < 0 then
-            raise Fail ("AdjacencyGraph: vertex " ^ Int.toString i
-                        ^ " has negative degree")
-          else
-            deg
-        end)
+      val neighbors = AS.full (SeqBasis.tabulate 1000 (0, numEdges)
+        (fn i => Vertex.fromInt (tryParse "neighbor" (3+numVertices+i))))
     in
-      (AS.full offsets, AS.full degrees, AS.full neighbors)
+      (offsets, computeDegrees (numVertices, numEdges, offsets), neighbors)
+    end
+
+  fun writeAsBinaryFormat g filename =
+    let
+      val (offsets, _, nbrs) = g
+
+      val file = TextIO.openOut filename
+      val _ = TextIO.output (file, "AdjacencyGraphBin\n")
+      val _ = TextIO.closeOut file
+
+      val file = BinIO.openAppend filename
+      fun w8 (w: Word8.word) = BinIO.output1 (file, w)
+      fun w64 (w: Word64.word) =
+        let
+          open Word64
+          infix 2 >> andb
+        in
+          (* this will only work if Word64 = LargeWord, which is good. *)
+          w8 (Word8.fromLarge (w >> 0w56));
+          w8 (Word8.fromLarge (w >> 0w48));
+          w8 (Word8.fromLarge (w >> 0w40));
+          w8 (Word8.fromLarge (w >> 0w32));
+          w8 (Word8.fromLarge (w >> 0w24));
+          w8 (Word8.fromLarge (w >> 0w16));
+          w8 (Word8.fromLarge (w >> 0w8));
+          w8 (Word8.fromLarge w)
+        end
+      fun wi (x: int) = w64 (Word64.fromInt x)
+      fun wv (v: vertex) = w64 (vToWord v)
+    in
+      wi (numVertices g);
+      wi (numEdges g);
+      Util.for (0, numVertices g) (fn i => wi (Seq.nth offsets i));
+      Util.for (0, numEdges g) (fn i => wv (Seq.nth nbrs i));
+      BinIO.closeOut file
+    end
+
+  fun parseBin bytes =
+    let
+      val header = "AdjacencyGraphBin\n"
+      val header' =
+        if Seq.length bytes < String.size header then
+          raise Fail ("AdjacencyGraphBin: missing or incomplete header")
+        else
+          CharVector.tabulate (String.size header, fn i =>
+            Char.chr (Word8.toInt (Seq.nth bytes i)))
+      val _ =
+        if header = header' then ()
+        else raise Fail ("expected AdjacencyGraphBin header")
+
+      val bytes = Seq.drop bytes (String.size header)
+
+      (* this will only work if Word64 = LargeWord, which is good. *)
+      fun r64 i =
+        let
+          infix 2 << orb
+          val op<< = Word64.<<
+          val op orb = Word64.orb
+
+          val off = i*8
+          val w = Word8.toLarge (Seq.nth bytes off)
+          val w = (w << 0w8) orb (Word8.toLarge (Seq.nth bytes (off+1)))
+          val w = (w << 0w8) orb (Word8.toLarge (Seq.nth bytes (off+2)))
+          val w = (w << 0w8) orb (Word8.toLarge (Seq.nth bytes (off+3)))
+          val w = (w << 0w8) orb (Word8.toLarge (Seq.nth bytes (off+4)))
+          val w = (w << 0w8) orb (Word8.toLarge (Seq.nth bytes (off+5)))
+          val w = (w << 0w8) orb (Word8.toLarge (Seq.nth bytes (off+6)))
+          val w = (w << 0w8) orb (Word8.toLarge (Seq.nth bytes (off+7)))
+        in
+          w
+        end
+
+      fun ri i = Word64.toInt (r64 i)
+      fun rv i = Vertex.fromInt (ri i)
+
+      val numVertices = ri 0
+      val numEdges = ri 1
+
+      val offsets =
+        AS.full (SeqBasis.tabulate 10000 (0, numVertices) (fn i => ri (i+2)))
+      val nbrs =
+        AS.full (SeqBasis.tabulate 10000 (0, numEdges) (fn i => rv (i+2+numVertices)))
+    in
+      (offsets, computeDegrees (numVertices, numEdges, offsets), nbrs)
+    end
+
+  fun parseFile path =
+    let
+      val file = TextIO.openIn path
+
+      val h1 = "AdjacencyGraph\n"
+      val h2 = "AdjacencyGraphBin\n"
+
+      val actualHeader =
+        TextIO.inputN (file, Int.max (String.size h1, String.size h2))
+    in
+      TextIO.closeIn file;
+
+      if String.isPrefix h1 actualHeader then
+        let
+          val (c, tm) = Util.getTime (fn _ => ReadFile.contentsSeq path)
+          val _ = print ("read file in " ^ Time.fmt 4 tm ^ "s\n")
+          val (graph, tm) = Util.getTime (fn _ => parse c)
+          val _ = print ("parsed graph in " ^ Time.fmt 4 tm ^ "s\n")
+        in
+          graph
+        end
+      else if String.isPrefix h2 actualHeader then
+        let
+          val (c, tm) = Util.getTime (fn _ => ReadFile.contentsBinSeq path)
+          val _ = print ("read file in " ^ Time.fmt 4 tm ^ "s\n")
+          val (graph, tm) = Util.getTime (fn _ => parseBin c)
+          val _ = print ("parsed graph in " ^ Time.fmt 4 tm ^ "s\n")
+        in
+          graph
+        end
+      else
+        raise Fail ("unknown header " ^ actualHeader)
     end
 
   (* Useful as a sanity check for symmetrized graphs --

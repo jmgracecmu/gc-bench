@@ -11,7 +11,7 @@ end
 structure ReadFile =
 struct
 
-  fun contentsSeq filename =
+  fun contentsSeq' reader filename =
     let
       val file = MPL.File.openFile filename
       val n = MPL.File.size file
@@ -24,11 +24,17 @@ struct
           val lo = i*k
           val hi = Int.min ((i+1)*k, n)
         in
-          MPL.File.readChars file lo (ArraySlice.slice (arr, lo, SOME (hi-lo)))
+          reader file lo (ArraySlice.slice (arr, lo, SOME (hi-lo)))
         end);
       MPL.File.closeFile file;
       ArraySlice.full arr
     end
+
+  fun contentsSeq filename =
+    contentsSeq' MPL.File.readChars filename
+
+  fun contentsBinSeq filename =
+    contentsSeq' MPL.File.readWord8s filename
 
   fun contents filename =
     let

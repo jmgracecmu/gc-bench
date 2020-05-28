@@ -1,7 +1,7 @@
 structure PosixReadFile =
 struct
 
-  fun contentsSeq path =
+  fun contentsSeq' (readByte: Word8.word -> 'a) path =
     let
       val (file, length) =
         let
@@ -27,7 +27,7 @@ struct
 
       fun copyToResult i n =
         Word8ArraySlice.appi (fn (j, b) =>
-          Unsafe.Array.update (result, i+j, Char.chr (Word8.toInt b)))
+          Unsafe.Array.update (result, i+j, readByte b))
           (Word8ArraySlice.slice (buffer, 0, SOME n))
 
       fun dumpFrom i =
@@ -43,6 +43,12 @@ struct
       close file;
       ArraySlice.full result
     end
+
+  fun contentsSeq path =
+    contentsSeq' (Char.chr o Word8.toInt) path
+
+  fun contentsBinSeq path =
+    contentsSeq' (fn w => w) path
 
   fun contents filename =
     let
