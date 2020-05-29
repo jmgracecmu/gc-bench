@@ -23,6 +23,8 @@ struct
 
   fun map f s = tabulate (fn i => f (nth s i)) (length s)
 
+  fun rev s = tabulate (fn i => nth s (length s - i - 1)) (length s)
+
   fun iterate f b s =
     SeqBasis.foldl f b (0, length s) (nth s)
 
@@ -55,5 +57,22 @@ struct
     length s = length t andalso
     SeqBasis.reduce gran (fn (a, b) => a andalso b) true (0, length s)
       (fn i => eq (nth s i, nth t i))
+
+  fun flatten s =
+    let
+      val offsets = AS.full (SeqBasis.scan 10000 op+ 0 (0, length s) (length o nth s))
+      val total = nth offsets (length s)
+      val output = ForkJoin.alloc total
+    in
+      ForkJoin.parfor 100 (0, length s) (fn i =>
+        let
+          val t = nth s i
+          val off = nth offsets i
+        in
+          foreach t (fn (j, x) => A.update (output, off + j, x))
+        end);
+
+      AS.full output
+    end
 
 end

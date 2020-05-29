@@ -2,14 +2,15 @@ structure CommandLineArgs :
 sig
   (* each takes a key K and a default value D, looks for -K V in the
    * command-line arguments, and returns V if it finds it, or D otherwise. *)
-  val parseString : string -> string -> string
-  val parseInt : string -> int -> int
-  val parseBool : string -> bool -> bool
+  val parseString: string -> string -> string
+  val parseInt: string -> int -> int
+  val parseReal: string -> real -> real
+  val parseBool: string -> bool -> bool
 
   (* parseFlag K returns true if --K given on command-line *)
-  val parseFlag : string -> bool
+  val parseFlag: string -> bool
 
-  val positional : unit -> string list
+  val positional: unit -> string list
 end =
 struct
 
@@ -57,6 +58,15 @@ struct
     | SOME (s :: _) =>
         case Int.fromString s of
           NONE => die ("Cannot parse integer from \"-" ^ key ^ " " ^ s ^ "\"")
+        | SOME x => x
+
+  fun parseReal key default =
+    case search ("-" ^ key) (CommandLine.arguments ()) of
+      NONE => default
+    | SOME [] => die ("Missing argument of \"-" ^ key ^ "\" ")
+    | SOME (s :: _) =>
+        case Real.fromString s of
+          NONE => die ("Cannot parse real from \"-" ^ key ^ " " ^ s ^ "\"")
         | SOME x => x
 
   fun parseBool key default =
