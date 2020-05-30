@@ -98,10 +98,10 @@
     "args": ["-N 10000000"]
   },
   {
-    "tag": ["tape-delay"],
-    "bench": ["tape-delay"],
+    "tag": ["reverb"],
+    "bench": ["reverb"],
     "config": ["mpl", "mlton"],
     "procs": ["1", "2", "4", "8", "16"],
-    "args": ["inputs/moon-landing.wav -delay 0.1 -decay 0.75"]
+    "args": ["inputs/moon-landing.wav"]
   }
 ]

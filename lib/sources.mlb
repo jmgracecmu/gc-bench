@@ -27,3 +27,5 @@ Parse.sml
 AdjacencyGraph.sml
 
 PPM.sml
+NewWaveIO.sml
+Signal.sml

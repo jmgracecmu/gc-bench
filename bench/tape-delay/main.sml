@@ -3,7 +3,7 @@ structure CLA = CommandLineArgs
 val infile =
   case CLA.positional () of
     [x] => x
-  | _ => Util.die ("[ERR] usage: echo INPUT_FILE [-output OUTPUT_FILE]\n")
+  | _ => Util.die ("[ERR] usage: tape-delay INPUT_FILE [-output OUTPUT_FILE]\n")
 
 val outfile = CLA.parseString "output" ""
 
