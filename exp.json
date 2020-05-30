@@ -102,6 +102,6 @@
     "bench": ["reverb"],
     "config": ["mpl", "mlton"],
     "procs": ["1", "2", "4", "8", "16"],
-    "args": ["inputs/moon-landing.wav"]
+    "args": ["inputs/mangore-waltz.wav"]
   }
 ]

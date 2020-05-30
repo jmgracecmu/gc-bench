@@ -89,14 +89,34 @@ struct
       (ar, br, cr, dr)
     end
 
-  fun normalize snd =
-    let
-      val max =
-        SeqBasis.reduce 10000 Real.max 1.0 (0, Seq.length snd)
-          (fn i => Real.abs (Seq.nth snd i))
-    in
-      Seq.map (fn x => x / max) snd
-    end
+  (* Essentially mu-law compression. Normalizes to [-1,+1] and compresses
+   * the dynamic range slightly. The boost parameter should be >= 1. *)
+  fun compress boost snd =
+    if boost < 1.0 then
+      raise Fail ("Compression boost parameter must be at least 1")
+    else
+      let
+        (* maximum amplitude *)
+        val maxA =
+          SeqBasis.reduce 10000 Real.max 1.0 (0, Seq.length snd)
+            (fn i => Real.abs (Seq.nth snd i))
+
+        (* a little buffer of intensity to avoid distortion *)
+        val maxA' = 1.05 * maxA
+
+        val scale = Math.ln (1.0 + boost)
+
+        fun transfer x =
+          let
+            (* normalized *)
+            val x' = Real.abs (x / maxA')
+          in
+            (* compressed *)
+            Real.copySign (Math.ln (1.0 + boost * x') / scale, x)
+          end
+      in
+        Seq.map transfer snd
+      end
 
   fun shiftBy n s i =
     if i < n then
@@ -110,29 +130,47 @@ struct
     let
       val N = Seq.length dry
 
+      (* ==========================================
+       * Fused reflections near 50ms
+       * (at 44.1kHz, 50ms is about 2200 samples)
+       *
+       * The basic design is taken from
+       *   The Computer Music Tutorial (1996), page 481
+       *   Author: Curtis Roads
+       *
+       * The basic design is 4 comb filters (in parallel)
+       * which are then fed into two allpass filters, in series.
+       *)
       val (c1, c2, c3, c4) =
-        par4 (fn _ => delay 1931 0.62 dry,
-              fn _ => delay 2213 0.5 dry,
-              fn _ => delay 1747 0.62 dry,
+        par4 (fn _ => delay 1931 0.7 dry,
+              fn _ => delay 2213 0.7 dry,
+              fn _ => delay 1747 0.7 dry,
               fn _ => delay 1559 0.7 dry)
 
       fun combs i =
-        (0.75 * Seq.nth c1 i +
-         1.0 * Seq.nth c2 i +
-         0.75 * Seq.nth c3 i +
-         0.75 * Seq.nth c4 i)
+        (Seq.nth c1 i +
+         Seq.nth c2 i +
+         Seq.nth c3 i +
+         Seq.nth c4 i)
 
-      (* fused reflections *)
       val fused = Seq.tabulate combs N
-      val fused = allPass 167 0.53 fused
-      val fused = allPass 191 0.53 fused
+      val fused = allPass 167 0.6 fused
+      val fused = allPass 191 0.6 fused
 
-      (* early reflections *)
+      (* ==========================================
+       * early reflections are single echos of
+       * the dry sound that occur after around
+       * 25ms delay
+       *)
       val ed1 = 1013
       val ed2 = 1102
       val ed3 = 1300
 
-      (* wet signal = dry + early + fused *)
+      (* ==========================================
+       * wet signal = dry + early + fused
+       * the fused reflections start emerging after
+       * approximately 35ms
+       *)
       val fusedDelay = 1500
 
       val wet = Seq.tabulate (fn i =>
@@ -144,7 +182,8 @@ struct
         (N + fusedDelay)
 
     in
-      normalize wet
+      (* wet *)
+      compress 2.0 wet
     end
 
 end
