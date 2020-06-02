@@ -202,7 +202,23 @@ def table(rows, justify=None):
 
 # =========================================================================
 
-with open(sys.argv[1], 'r') as data:
+if len(sys.argv) > 1:
+  inputFile = sys.argv[1]
+else:
+  print("[INFO] no results file argument; finding most recent")
+  files = os.listdir("results")
+  try:
+    # A bit of a hack. Filenames are YYMMDD-hhmmss, so lexicographic string
+    # comparison is correct for finding the most recent (i.e. maximum) file
+    mostRecent = max(p for p in files if re.match(r'\d{6}-\d{6}', p))
+  except:
+    print("[ERR] could not find most recent results file\n " + \
+          "  check that these are formatted as 'YYMMSS-hhmmss'")
+    sys.exit(1)
+  inputFile = os.path.join('results', mostRecent)
+
+print("[INFO] reading {}\n".format(inputFile))
+with open(inputFile, 'r') as data:
   resultsData = json_careful_readlines(data)
 D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
@@ -319,3 +335,5 @@ for tag in foundTags:
 print("MPL/CC versus MPL")
 print(table(tt, just))
 print("")
+
+print("[INFO] done reporting {}".format(inputFile))
