@@ -5,7 +5,27 @@ import sys
 import re
 import copy
 import os
-from prettytable import PrettyTable
+
+BLUE = '\033[94m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+RED = '\033[91m'
+ENDC = '\033[0m'
+BOLD = '\033[1m'
+UNDERLINE = '\033[4m'
+
+class colortext:
+  def __init__(self, text, color):
+    self.text = text
+    self.color = color
+  def __len__(self):
+    return len(self.text)
+  def __str__(self):
+    return BOLD + self.color + self.text + ENDC
+def green(s):
+  return colortext(s, GREEN)
+def red(s):
+  return colortext(s, RED)
 
 def displayTag(t):
   return t
@@ -37,7 +57,8 @@ statsPatterns = \
 
 renameConfig = {
   'mlton': 'mlton',
-  'mpl': 'mpl'
+  'mpl': 'mpl',
+  'mpl-cc': 'mpl-cc'
 }
 
 foundTags = set()
@@ -116,69 +137,185 @@ def sp(kb):
 
 # =========================================================================
 
-# if len(sys.argv) < 4:
-#   sys.stderr.write("[ERR] too few arguments\n")
-#   sys.stderr.write("Usage: tables.py timingResults spaceResults workingSetResults\n")
-#   sys.exit(1)
+def makeline(row, widths, justify):
+  bits = []
+  i = 0
+  while i < len(row):
+    j = i+1
+    while j < len(row) and (row[j] is None):
+      j += 1
+    availableWidth = sum(widths[i:j]) + 3*(j-i-1)
+    s = str(row[i])
+    w = " " * (availableWidth - len(row[i]))
+    if justify(i) == "l":
+      ln = s + w
+    elif justify(i) == "r":
+      ln = w + s
+    elif justify(i) == "c":
+      ln = w[:len(w)/2] + s + w[len(w)/2:]
+    else:
+      raise ValueError("invalid formatter: {}".format(justify))
+    bits.append(ln)
+    i = j
+  return "   ".join(bits)
+
+def table(rows, justify=None):
+  numCols = max(len(row) for row in rows if not isinstance(row, str))
+
+  widths = [0] * numCols
+  for row in rows:
+    # string rows are used for formatting
+    if isinstance(row, str):
+      continue
+
+    i = 0
+    while i < len(row):
+      j = i+1
+      while j < len(row) and (row[j] is None):
+        j += 1
+      # rw = len(stripANSI(str(row[i])))
+      # rw = len(str(row[i]))
+      rw = len(row[i])
+      for k in xrange(i, j):
+        w = (rw / (j-i)) + (1 if k < rw % (j-i) else 0)
+        widths[k] = max(widths[k], w)
+      i = j
+
+  totalWidth = sum(widths) + 3*(numCols-1)
+
+  def just(i):
+    try:
+      return justify(i)
+    except:
+      return "l"
+
+  output = []
+  for row in rows:
+    if row == "-" or row == "=":
+      output.append(row * totalWidth)
+      continue
+    elif isinstance(row, str):
+      raise ValueError("bad row: {}".format(row))
+    output.append(makeline(row, widths, just))
+
+  return "\n".join(output)
+
+# =========================================================================
+
 with open(sys.argv[1], 'r') as data:
   resultsData = json_careful_readlines(data)
-
 D = [ parseStats(row) for row in resultsData ]
-
 P = sorted(list(foundProcs))
-
-headers = ['Benchmark', 'MLton'] + [ 'MPL({})'.format(p) for p in P ]
-timeTable = PrettyTable(headers)
-for tag in foundTags:
-  tMLton = tm(averageTime(D, 'mlton', tag, 1))
-  # tMPL1 = tm(averageTime(D, 'mpl', tag, 1))
-  # overhead = tm(tMPL1 / tMLton)
-  # rMLton = sp(averageSpace(D, 'mlton', tag, 1))
-  thisRow = [tag, tMLton] \
-          + [ tm(averageTime(D, 'mpl', tag, p)) for p in P ]
-  timeTable.add_row(thisRow)
-
-print("TIMINGS")
-print(timeTable)
-print("")
-
-headers = ['Benchmark', 'MLton'] + [ 'MPL({})'.format(p) for p in P ]
-spaceTable = PrettyTable(headers)
-for tag in foundTags:
-  rMLton = sp(averageSpace(D, 'mlton', tag, 1))
-  # tMPL1 = sp(averageSpace(D, 'mpl', tag, 1))
-  # overhead = tm(tMPL1 / tMLton)
-  # rMLton = sp(averageSpace(D, 'mlton', tag, 1))
-  thisRow = [tag, rMLton] \
-          + [ sp(averageSpace(D, 'mpl', tag, p)) for p in P ]
-  spaceTable.add_row(thisRow)
-
-print("MAX RESIDENCY")
-print(spaceTable)
-print("")
-
 maxp = max(foundProcs)
 
-headers = ['Benchmark',
-           'Overhead',
-           'Speedup({})'.format(maxp),
-           'Blowup(1)',
-           'Blowup({})'.format(maxp)]
-summaryTable = PrettyTable(headers)
+def just(i):
+  return "r" if i == 0 else "l"
+
+headers = ['Benchmark', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
+tt = [headers, "="]
+for tag in foundTags:
+  thisRow = [tag,
+             tm(averageTime(D, 'mlton', tag, 1)),
+             tm(averageTime(D, 'mpl', tag, 1)),
+             tm(averageTime(D, 'mpl-cc', tag, 1)),
+             tm(averageTime(D, 'mpl', tag, maxp)),
+             tm(averageTime(D, 'mpl-cc', tag, maxp))
+            ]
+  thisRow = [thisRow[0]] + [str(x) for x in thisRow[1:]]
+  tt.append(thisRow)
+
+print("TIMINGS")
+print(table(tt, just))
+print("")
+
+headers = ['Benchmark', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
+tt = [headers, "="]
+for tag in foundTags:
+  thisRow = [tag,
+             sp(averageSpace(D, 'mlton', tag, 1)),
+             sp(averageSpace(D, 'mpl', tag, 1)),
+             sp(averageSpace(D, 'mpl-cc', tag, 1)),
+             sp(averageSpace(D, 'mpl', tag, maxp)),
+             sp(averageSpace(D, 'mpl-cc', tag, maxp))
+            ]
+  tt.append(thisRow)
+
+print("SPACE (MAX RESIDENCY)")
+print(table(tt, just))
+print("")
+
+# percent difference (b-a)/|a|
+def pcd(b, a):
+  xx = 100.0 * (b-a) / abs(a)
+  result = ("+" if xx >= 0.0 else "") + ("{:.1f}%".format(xx))
+  if xx > 0.0:
+    return red(result)
+  else:
+    return result
+
+header1 = ["", "Overhead", None, "Speedup({})".format(maxp), None, "Blowup(1)", None, "Blowup({})".format(maxp), None]
+header2 = ['Benchmark',
+           'MPL',
+           'MPL/CC',
+           'MPL',
+           'MPL/CC',
+           'MPL',
+           'MPL/CC',
+           'MPL',
+           'MPL/CC']
+tt = [header1, header2, "="]
 for tag in foundTags:
   tMLton = tm(averageTime(D, 'mlton', tag, 1))
   tMPL1 = tm(averageTime(D, 'mpl', tag, 1))
   tMPLp = tm(averageTime(D, 'mpl', tag, maxp))
+  tMPLcc1 = tm(averageTime(D, 'mpl-cc', tag, 1))
+  tMPLccp = tm(averageTime(D, 'mpl-cc', tag, maxp))
   rMLton = averageSpace(D, 'mlton', tag, 1)
   rMPL1 = averageSpace(D, 'mpl', tag, 1)
   rMPLp = averageSpace(D, 'mpl', tag, maxp)
-  overhead = tm(tMPL1 / tMLton)
-  speedup = tm(tMLton / tMPLp)
-  rOverhead1 = tm(rMPL1 / rMLton)
-  rOverheadp = tm(rMPLp / rMLton)
-  summaryTable.add_row([tag, overhead, speedup, rOverhead1, rOverheadp])
+  rMPLcc1 = averageSpace(D, 'mpl-cc', tag, 1)
+  rMPLccp = averageSpace(D, 'mpl-cc', tag, maxp)
 
-print("SUMMARY")
-print(summaryTable)
+  overhead = tm(tMPL1 / tMLton)
+  overheadcc = tm(tMPLcc1 / tMLton)
+  speedup = tm(tMLton / tMPLp)
+  speedupcc = tm(tMLton / tMPLccp)
+  blowup1 = tm(rMPL1 / rMLton)
+  blowupcc1 = tm(rMPLcc1 / rMLton)
+  blowupp = tm(rMPLp / rMLton)
+  blowupccp = tm(rMPLccp / rMLton)
+
+  row = [tag, overhead, overheadcc, speedup, speedupcc, blowup1, blowupcc1, blowupp, blowupccp]
+  row = [row[0]] + map(lambda x: "{:.1f}".format(x), row[1:])
+  tt.append(row)
+
+print("COMPARISON WITH MLTON")
 print("Blowup(p) = (MPL(p) space) / (MLton space)")
+print(table(tt, just))
+print("")
+
+header = ["Benchmark", "Time(1)", "Time({})".format(maxp), "Space(1)", "Space({})".format(maxp)]
+tt = [header, "="]
+for tag in foundTags:
+  # tMLton = tm(averageTime(D, 'mlton', tag, 1))
+  tMPL1 = tm(averageTime(D, 'mpl', tag, 1))
+  tMPLp = tm(averageTime(D, 'mpl', tag, maxp))
+  tMPLcc1 = tm(averageTime(D, 'mpl-cc', tag, 1))
+  tMPLccp = tm(averageTime(D, 'mpl-cc', tag, maxp))
+  # rMLton = averageSpace(D, 'mlton', tag, 1)
+  rMPL1 = averageSpace(D, 'mpl', tag, 1)
+  rMPLp = averageSpace(D, 'mpl', tag, maxp)
+  rMPLcc1 = averageSpace(D, 'mpl-cc', tag, 1)
+  rMPLccp = averageSpace(D, 'mpl-cc', tag, maxp)
+
+  t1 = pcd(tMPLcc1, tMPL1)
+  tp = pcd(tMPLccp, tMPLp)
+  r1 = pcd(rMPLcc1, rMPL1)
+  rp = pcd(rMPLccp, rMPLp)
+
+  row = [tag, t1, tp, r1, rp]
+  tt.append(row)
+
+print("MPL/CC versus MPL")
+print(table(tt, just))
 print("")

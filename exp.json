@@ -2,106 +2,106 @@
   {
     "tag": ["fib"],
     "bench": ["fib"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 42"]
   },
   {
     "tag": ["random"],
     "bench": ["random"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 1000000000"]
   },
   {
     "tag": ["dmm"],
     "bench": ["dmm"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 1024"]
   },
   {
     "tag": ["nn"],
     "bench": ["nn"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 1000000"]
   },
   {
     "tag": ["msort"],
     "bench": ["msort"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 10000000"]
   },
   {
     "tag": ["nqueens"],
     "bench": ["nqueens"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 13"]
   },
   {
     "tag": ["primes"],
     "bench": ["primes"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 100000000"]
   },
   {
     "tag": ["ray"],
     "bench": ["ray"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-n 1000 -m 1000"]
   },
   {
     "tag": ["tokens"],
     "bench": ["tokens"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["inputs/words64.txt --verbose --no-output"]
   },
   {
     "tag": ["dedup"],
     "bench": ["dedup"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["inputs/words64.txt --verbose --no-output"]
   },
   {
     "tag": ["suffix-array"],
     "bench": ["suffix-array"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["--benchmark -N 10000000"]
   },
   {
     "tag": ["palindrome"],
     "bench": ["palindrome"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 1000000"]
   },
   {
     "tag": ["grep"],
     "bench": ["grep"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["ee inputs/words64.txt --benchmark"]
   },
   {
     "tag": ["quickhull"],
     "bench": ["quickhull"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["-N 10000000"]
   },
   {
     "tag": ["reverb"],
     "bench": ["reverb"],
-    "config": ["mpl", "mlton"],
-    "procs": ["1", "2", "4", "8", "16"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
     "args": ["inputs/mangore-waltz.wav"]
   }
 ]

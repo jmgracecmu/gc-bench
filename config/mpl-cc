@@ -1,0 +1,3 @@
+COMPILER=mpl-cc
+FLAGS=
+COMPAT=mpl
