@@ -3,17 +3,29 @@ Benchmarks for evaluating MPL performance.
 
 ## Setup
 
-You need `mpl` and `mlton` in your path.
+You need these in your path:
+  * `mlton`, the MLton compiler
+  * `mpl`, the MaPLe compiler
+  * `mpl-cc`, the MaPLe compiler with concurrent collection
 
 ## Run
 
-Run all experiments:
+Run all experiments. By default, does each benchmark one.
+You can pass `--repeat N` to do `N` repetitions of each benchmark.
 ```
 $ ./run
 ```
-This produces a file `results/XXX` where `XXX` is the current date/time.
+```
+$ ./run --repeat 10
+```
 
-Print a summary of the results:
+The `run` script produces a file `results/XXX` where `XXX` is the
+current date/time. The `report` script will print a summary. With no
+arguments, this selects the most recent results. Or, you can pick a
+particular file.
+```
+$ ./report
+```
 ```
 $ ./report results/XXX
 ```

@@ -1,3 +1,4 @@
 #!/bin/bash
 
-scripts/gencmds.py exp.json | scripts/runcmds.py -o results/$(date '+%y%m%d-%H%M%S')
+scripts/gencmds.py exp.json \
+| scripts/runcmds.py --output results/$(date '+%y%m%d-%H%M%S') $@
