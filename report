@@ -88,21 +88,33 @@ def parseStats(row):
 
   return newRow
 
-def averageTime(data, config, tag, procs):
-  times = []
+def findTrials(data, config, tag, procs):
+  result = []
   for row in data:
-    if row['config'] == config and row['tag'] == tag and row['procs'] == procs and 'time' in row:
-      times.append(row['time'])
+    if (row['config'] == config and \
+        row['tag'] == tag and \
+        row['procs'] == procs and \
+        'time' in row and \
+        'space' in row):
+      result.append(row)
+  return result
+
+def averageTime(data, config, tag, procs):
+  tms = [ r['time'] for r in findTrials(data, config, tag, procs) ]
+
+  # cut out the max time to account for possible file IO slowdown
+  # (this should only happen the first time the file is loaded)
+  if len(tms) > 1:
+    maxt = max(tms)
+    tms = [ t for t in tms if t != maxt ]
+
   try:
-    return sum(times) / len(times)
+    return sum(tms) / len(tms)
   except:
     raise ValueError('Error processing average time of config={}, tag={}, procs={}'.format(config, tag, procs))
 
 def averageSpace(data, config, tag, procs):
-  sp = []
-  for row in data:
-    if row['config'] == config and row['tag'] == tag and row['procs'] == procs and 'space' in row:
-      sp.append(row['space'])
+  sp = [ r['space'] for r in findTrials(data, config, tag, procs) ]
   try:
     return sum(sp) / len(sp)
   except:
