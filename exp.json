@@ -103,5 +103,12 @@
     "config": ["mpl", "mpl-cc", "mlton"],
     "procs": ["1", "16"],
     "args": ["inputs/mangore-waltz.wav"]
+  },
+  {
+    "tag": ["centrality"],
+    "bench": ["centrality"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
+    "args": ["inputs/rmat-100M-symm-bin"]
   }
 ]
