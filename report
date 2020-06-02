@@ -137,7 +137,7 @@ def sp(kb):
 
 # =========================================================================
 
-def makeline(row, widths, justify):
+def makeline(row, widths, align):
   bits = []
   i = 0
   while i < len(row):
@@ -147,19 +147,20 @@ def makeline(row, widths, justify):
     availableWidth = sum(widths[i:j]) + 3*(j-i-1)
     s = str(row[i])
     w = " " * (availableWidth - len(row[i]))
-    if justify(i) == "l":
+    aa = align(i)
+    if aa == "l":
       ln = s + w
-    elif justify(i) == "r":
+    elif aa == "r":
       ln = w + s
-    elif justify(i) == "c":
+    elif aa == "c":
       ln = w[:len(w)/2] + s + w[len(w)/2:]
     else:
-      raise ValueError("invalid formatter: {}".format(justify))
+      raise ValueError("invalid formatter: {}".format(aa))
     bits.append(ln)
     i = j
   return "   ".join(bits)
 
-def table(rows, justify=None):
+def table(rows, align=None):
   numCols = max(len(row) for row in rows if not isinstance(row, str))
 
   widths = [0] * numCols
@@ -183,9 +184,9 @@ def table(rows, justify=None):
 
   totalWidth = sum(widths) + 3*(numCols-1)
 
-  def just(i):
+  def aa(i):
     try:
-      return justify(i)
+      return align(i)
     except:
       return "l"
 
@@ -196,7 +197,7 @@ def table(rows, justify=None):
       continue
     elif isinstance(row, str):
       raise ValueError("bad row: {}".format(row))
-    output.append(makeline(row, widths, just))
+    output.append(makeline(row, widths, aa))
 
   return "\n".join(output)
 
@@ -224,7 +225,7 @@ D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
 maxp = max(foundProcs)
 
-def just(i):
+def defaultAlign(i):
   return "r" if i == 0 else "l"
 
 headers = ['Benchmark', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
@@ -241,7 +242,7 @@ for tag in foundTags:
   tt.append(thisRow)
 
 print("TIMINGS")
-print(table(tt, just))
+print(table(tt, defaultAlign))
 print("")
 
 headers = ['Benchmark', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
@@ -257,7 +258,7 @@ for tag in foundTags:
   tt.append(thisRow)
 
 print("SPACE (MAX RESIDENCY)")
-print(table(tt, just))
+print(table(tt, defaultAlign))
 print("")
 
 # percent difference (b-a)/|a|
@@ -307,7 +308,7 @@ for tag in foundTags:
 
 print("COMPARISON WITH MLTON")
 print("Blowup(p) = (MPL(p) space) / (MLton space)")
-print(table(tt, just))
+print(table(tt, defaultAlign))
 print("")
 
 header = ["Benchmark", "Time(1)", "Time({})".format(maxp), "Space(1)", "Space({})".format(maxp)]
@@ -333,7 +334,7 @@ for tag in foundTags:
   tt.append(row)
 
 print("MPL/CC versus MPL")
-print(table(tt, just))
+print(table(tt, defaultAlign))
 print("")
 
 print("[INFO] done reporting {}".format(inputFile))
