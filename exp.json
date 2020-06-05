@@ -110,5 +110,12 @@
     "config": ["mpl", "mpl-cc", "mlton"],
     "procs": ["1", "16"],
     "args": ["inputs/rmat-100M-symm-bin"]
+  },
+  {
+    "tag": ["seam-carve"],
+    "bench": ["seam-carve"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
+    "args": ["inputs/pano.ppm -num-seams 100"]
   }
 ]

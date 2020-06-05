@@ -5,11 +5,14 @@ val filename =
     [x] => x
   | _ => Util.die "missing filename"
 
+val numSeams = CLA.parseInt "num-seams" 100
+val _ = print ("num-seams " ^ Int.toString numSeams ^ "\n")
+
 val (image, tm) = Util.getTime (fn _ => PPM.read filename)
 val _ = print ("read image in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (seam, tm) = Util.getTime (fn _ => SC.minSeam image)
-val _ = print ("found seam in " ^ Time.fmt 4 tm ^ "s\n")
+val (carved, tm) = Util.getTime (fn _ => SC.removeSeams numSeams image)
+val _ = print ("carved seams in " ^ Time.fmt 4 tm ^ "s\n")
 
 val outfile = CLA.parseString "output" ""
 val _ =
@@ -17,7 +20,10 @@ val _ =
     print ("use -output XXX to see result\n")
   else
     let
-      val outputImage = SC.paintSeam image seam {red=0w255, green=0w0, blue=0w0}
+      (* val red = {red=0w255, green=0w0, blue=0w0}
+      val (_, tm) = Util.getTime (fn _ =>
+        PPM.write outfile (SC.paintSeam image seam red)) *)
+      val (_, tm) = Util.getTime (fn _ => PPM.write outfile carved)
     in
-      PPM.write outfile outputImage
+      print ("wrote output in " ^ Time.fmt 4 tm ^ "s\n")
     end

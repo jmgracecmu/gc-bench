@@ -7,6 +7,8 @@ sig
   val paintSeam: image -> seam -> PPM.pixel -> image
 
   val carve: image -> seam -> image
+
+  val removeSeams: int -> image -> image
 end =
 struct
 
@@ -48,6 +50,15 @@ struct
       AS.full minSeamEnergies
     end
 
+  (* I tuned this a little bit. For an image approximately 1000 pixels
+   * wide, this only gives us about 12x possible speedup. But any smaller
+   * and the grains are too small! *)
+  val blockWidth = CommandLineArgs.parseInt "block-width" 80
+  val _ = print ("block-width " ^ Int.toString blockWidth ^ "\n")
+  val _ =
+    if blockWidth mod 2 = 0 then ()
+    else Util.die ("block-width must be even!")
+
   (* Triangular-blocked bottom-up DP does fancy triangular strategy, to
    * improve granularity.
    *
@@ -82,7 +93,6 @@ struct
           Array.update (minSeamEnergies, i*width + j, x)
         end
 
-      val blockWidth = 128 (* MUST BE EVEN *)
       val blockHeight = blockWidth div 2
       val numBlocks = 1 + (width - 1) div blockWidth
 
@@ -128,7 +138,7 @@ struct
       fun setStripStartingAt i =
         ( ForkJoin.parfor 1 (0, numBlocks) (fn b =>
             upperTriangle i (b * blockWidth + blockHeight))
-        ; ForkJoin.parfor 1 (0, numBlocks) (fn b =>
+        ; ForkJoin.parfor 1 (0, numBlocks+1) (fn b =>
             lowerTriangle (i+1) (b * blockWidth))
         )
 
@@ -177,8 +187,8 @@ struct
         end
 
       val energies =
-        Seq.tabulate (fn k => computeEnergy (k div width) (k mod width))
-        (width * height)
+        AS.full (SeqBasis.tabulate 4000 (0, width*height) (fn k =>
+          computeEnergy (k div width) (k mod width)))
       fun energy i j =
         Seq.nth energies (i*width + j)
 
@@ -243,7 +253,7 @@ struct
     in
       { width = width-1
       , height = height
-      , data = Seq.tabulate newElem (height * (width-1))
+      , data = AS.full (SeqBasis.tabulate 4000 (0, (width-1)*height) newElem)
       }
     end
 
@@ -267,5 +277,11 @@ struct
       , data = Seq.tabulate newElem (height * width)
       }
     end
+
+  fun removeSeams n image =
+    if n = 0 then
+      image
+    else
+      removeSeams (n-1) (carve image (minSeam image))
 
 end
