@@ -334,11 +334,16 @@ val white: PPM.pixel = {red=0w255, green=0w255, blue=0w255}
 val black: PPM.pixel = {red=0w0, green=0w0, blue=0w0}
 val red: PPM.pixel = {red=0w255, green=0w0, blue=0w0}
 
-val image = Seq.tabulate (fn i => Seq.tabulate (fn j => white) width) height
+val image =
+  { width = width
+  , height = height
+  , data = Seq.tabulate (fn _ => white) (width*height)
+  }
+
 fun set (i, j) x =
   if 0 <= i andalso i < height andalso
-     0 <= j andalso j < width 
-  then ArraySlice.update (Seq.nth image i, j, x)
+     0 <= j andalso j < width
+  then ArraySlice.update (#data image, i*width + j, x)
   else ()
 
 val r = Real.fromInt resolution
