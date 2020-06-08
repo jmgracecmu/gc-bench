@@ -11,6 +11,8 @@ sig
   val hash32_3: Word32.word -> Word32.word
   val hash: int -> int
 
+  val ceilDiv: int -> int -> int
+
   val pow2: int -> int
 
   (* this actually computes 1 + floor(log_2(n)), i.e. the number of
@@ -52,6 +54,8 @@ struct
     in
       (result, Time.- (t1, t0))
     end
+
+  fun ceilDiv n k = 1 + (n-1) div k
 
   (* NOTE: this actually computes 1 + floor(log_2(n)), i.e. the number of
    * bits required to represent n in binary *)
