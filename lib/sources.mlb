@@ -26,6 +26,7 @@ Parse.sml
 (* TabFilterTree.sml *)
 AdjacencyGraph.sml
 
+Color.sml
 PPM.sml
 NewWaveIO.sml
 Signal.sml

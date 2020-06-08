@@ -1,8 +1,8 @@
 (* Basic support for the netpbm .ppm file format. *)
 structure PPM:
 sig
-  type channel = Word8.word
-  type pixel = {red: channel, green: channel, blue: channel}
+  type channel = Color.channel
+  type pixel = Color.pixel
 
   (* flat sequence; pixel (i, j) is at data[i*width + j] *)
   type image = {height: int, width: int, data: pixel Seq.t}
@@ -27,8 +27,8 @@ struct
 
   type 'a seq = 'a Seq.t
 
-  type channel = Word8.word
-  type pixel = {red: channel, green: channel, blue: channel}
+  type channel = Color.channel
+  type pixel = Color.pixel
   type image = {height: int, width: int, data: pixel Seq.t}
   type box = {topleft: int * int, botright: int * int}
 
