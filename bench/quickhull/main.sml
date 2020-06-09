@@ -15,12 +15,23 @@ fun randPt seed =
 (* val filename = CLA.parseString "infile" "" *)
 val outfile = CLA.parseString "outfile" ""
 val n = CLA.parseInt "N" (1000 * 1000 * 100)
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
+
 val _ = print ("input size " ^ Int.toString n ^ "\n")
 
 val (inputPts, tm) = Util.getTime (fn _ => Seq.tabulate randPt n)
 val _ = print ("generated input in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (result, tm) = Util.getTime (fn _ => Quickhull.hull inputPts)
+fun quickHullEx() =
+  let
+    val (result, tm) = Util.getTime (fn _ => Quickhull.hull inputPts)
+  in
+    (result, tm)
+  end
+val (result, tm) = Util.repeat (rep, (fn _ => quickHullEx()))
+
 val _ = print ("hull finished in " ^ Time.fmt 4 tm ^ "s\n")
 val _ = print ("hull size " ^ Int.toString (Seq.length result) ^ "\n")
 

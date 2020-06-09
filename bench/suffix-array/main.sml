@@ -8,6 +8,9 @@ val benchmark = CLA.parseFlag "benchmark"
 val benchSize = CLA.parseInt "N" 10000000
 val printResult = CLA.parseFlag "print"
 val filename = CLA.parseString "file" ""
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
 
 fun load filename =
   ReadFile.contents filename
@@ -78,13 +81,18 @@ fun runBenchmark () =
   let
     fun randChar seed = Char.chr (Util.hash seed mod 256)
     fun randString n = CharVector.tabulate (n, randChar)
-
     val _ = print ("N " ^ Int.toString benchSize ^ "\n")
-    val (str, tm) = Util.getTime (fn _ => randString benchSize)
-    val _ = print ("generated input in " ^ Time.fmt 4 tm ^ "s\n")
+    fun suffixEx() =
+      let
+        val (str, tm1) = Util.getTime (fn _ => randString benchSize)
+        val (result, tm2) = Util.getTime (fn _ => maker str)
+      in
+        (result, tm1, tm2)
+      end
+    val (result, tm1, tm2) = Util.repeat (rep, (fn _ => suffixEx()))
 
-    val (result, tm) = Util.getTime (fn _ => maker str)
-    val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
+    val _ = print ("generated input in " ^ Time.fmt 4 tm1 ^ "s\n")
+    val _ = print ("finished in " ^ Time.fmt 4 tm2 ^ "s\n")
 
     val _ =
       if not check then () else

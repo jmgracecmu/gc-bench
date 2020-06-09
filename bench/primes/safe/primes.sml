@@ -1,5 +1,3 @@
-structure CLA = CommandLineArgs
-
 (* primes: int -> int array
  * generate all primes up to (and including) n *)
 fun primes n =
@@ -35,25 +33,14 @@ fun primes n =
  * parse command-line arguments and run
  *)
 
-val n = CLA.parseInt "N" (100 * 1000 * 1000)
-val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
-               SOME(a) => a
-             | NONE => 1
-
+val n = CommandLineArgs.parseInt "N" (100 * 1000 * 1000)
 val _ = print ("generating primes up to " ^ Int.toString n ^ "\n")
 
-fun primesEx() =
-  let
-    val ((result1, result2), tm) =  Util.getTime(fn _ =>
-                                      ForkJoin.fork(fn() => primes n, fn() => primes n)
-                                    )
-  in
-    (result1, tm)
-  end
+val t0 = Time.now ()
+val result = primes n
+val t1 = Time.now ()
 
-val (result, tm) = Util.repeat (rep, (fn _ => primesEx()))
-
-val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
+val _ = print ("finished in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s\n")
 
 val numPrimes = Array.length result
 val _ = print ("number of primes " ^ Int.toString numPrimes ^ "\n")

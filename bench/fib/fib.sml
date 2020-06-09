@@ -1,3 +1,5 @@
+structure CLA = CommandLineArgs
+
 fun sfib n =
   if n <= 1 then n else sfib (n-1) + sfib (n-2)
 
@@ -10,11 +12,17 @@ fun fib n =
       x + y
     end
 
-val n = CommandLineArgs.parseInt "N" 39
+fun fibEx n = fib n
+
+val n = CLA.parseInt "N" 39
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
+
 val _ = print ("fib " ^ Int.toString n ^ "\n")
 
 val t0 = Time.now ()
-val result = fib n
+val result = Util.repeat (rep, (fn _ => fibEx n))
 val t1 = Time.now ()
 
 val _ = print ("finished in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s\n")

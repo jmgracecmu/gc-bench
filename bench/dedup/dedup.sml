@@ -167,6 +167,9 @@ val filename =
 
 val beVerbose = CommandLineArgs.parseFlag "verbose"
 val noOutput = CommandLineArgs.parseFlag "no-output"
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
 
 fun toWord str =
   let
@@ -190,11 +193,19 @@ fun vprint str =
 val (contents, tm) = Util.getTime (fn _ => ReadFile.contentsSeq filename)
 val _ = vprint ("read file in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (tokens, tm) = Util.getTime (fn _ => Tokenize.tokens Char.isSpace contents)
-val _ = vprint ("tokenized in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (result, tm) = Util.getTime (fn _ => dedup op= hash1 hash2 tokens)
-val _ = vprint ("deduplicated in " ^ Time.fmt 4 tm ^ "s\n")
+fun dedupEx() =
+  let
+    val (tokens, tm) = Util.getTime (fn _ => Tokenize.tokens Char.isSpace contents)
+    val _ = vprint ("tokenized in " ^ Time.fmt 4 tm ^ "s\n")
+
+    val (result, tm) = Util.getTime (fn _ => dedup op= hash1 hash2 tokens)
+    val _ = vprint ("deduplicated in " ^ Time.fmt 4 tm ^ "s\n")
+  in
+    (result, tm)
+  end
+
+val (result, tm) = Util.repeat (rep, (fn _ => dedupEx()))
 
 fun put c = TextIO.output1 (TextIO.stdOut, c)
 val _ =

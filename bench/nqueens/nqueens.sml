@@ -1,3 +1,5 @@
+structure CLA = CommandLineArgs
+
 type board = (int * int) list
 
 fun threatened (i,j) [] = false
@@ -26,13 +28,22 @@ fun countSol n =
   end
 
 val n = CommandLineArgs.parseInt "N" 13
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
+
+
 val _ = print ("counting number of " ^
                Int.toString n ^ "x" ^ Int.toString n ^ " solutions\n")
+fun nqueensEx() =
+  let
+    val (result, tm) = Util.getTime (fn _ => countSol n)
+  in
+    (result, tm)
+  end
 
-val t0 = Time.now ()
-val result = countSol n
-val t1 = Time.now ()
+val (result, tm) = Util.repeat (rep, (fn _ => nqueensEx()))
 
-val _ = print ("finished in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s\n")
+val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
 
 val _ = print ("result " ^ Int.toString result ^ "\n")

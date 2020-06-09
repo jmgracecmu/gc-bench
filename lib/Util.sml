@@ -4,6 +4,8 @@ sig
 
   val die: string -> 'a
 
+  val repeat: int * (unit -> 'a)  -> ('a)
+
   val hash64: Word64.word -> Word64.word
   val hash64_2: Word64.word -> Word64.word
   val hash32: Word32.word -> Word32.word
@@ -74,6 +76,16 @@ struct
   fun foreach s f =
     ForkJoin.parfor 4096 (0, ArraySlice.length s)
     (fn i => f (i, ArraySlice.sub (s, i)))
+
+  fun repeat (n, f) =
+    let
+      fun rep_help 1 = f()
+      |   rep_help n = ((rep_help (n-1)); f())
+
+      val ns = if (n>0) then n else 1
+    in
+      rep_help ns
+    end
 
   fun summarizeArraySlice count toString xs =
     let

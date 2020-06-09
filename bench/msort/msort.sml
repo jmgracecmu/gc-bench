@@ -1,4 +1,9 @@
-val n = CommandLineArgs.parseInt "N" (100*1000*1000)
+structure CLA = CommandLineArgs
+
+val n = CLA.parseInt "N" (100*1000*1000)
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
 
 val _ = print ("generating " ^ Int.toString n ^ " random integers\n")
 
@@ -8,10 +13,17 @@ val input = ArraySlice.full (SeqBasis.tabulate 10000 (0, n) elem)
 
 val _ = print ("sorting\n")
 
-val t0 = Time.now ()
-val result = Mergesort.sort Int.compare input
-val t1 = Time.now ()
+fun msortEx() =
+	let
+		val (result, tm) = Util.getTime (fn _ => Mergesort.sort Int.compare input)
+	in
+		(result, tm)
+	end
 
-val _ = print ("finished in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s\n")
+
+val (result, tm) = Util.repeat (rep, (fn _ => msortEx()))
+
+
+val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
 
 val _ = print ("result " ^ Util.summarizeArraySlice 8 Int.toString result ^ "\n")

@@ -1,3 +1,5 @@
+structure CLA = CommandLineArgs
+
 fun usage () =
   let
     val msg =
@@ -8,12 +10,15 @@ fun usage () =
   end
 
 val filename =
-  case CommandLineArgs.positional () of
+  case CLA.positional () of
     [x] => x
   | _ => usage ()
 
-val beVerbose = CommandLineArgs.parseFlag "verbose"
-val noOutput = CommandLineArgs.parseFlag "no-output"
+val beVerbose = CLA.parseFlag "verbose"
+val noOutput = CLA.parseFlag "no-output"
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
 
 fun vprint str =
   if not beVerbose then ()
@@ -22,7 +27,11 @@ fun vprint str =
 val (contents, tm) = Util.getTime (fn _ => ReadFile.contentsSeq filename)
 val _ = vprint ("read file in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (tokens, tm) = Util.getTime (fn _ => Tokenize.tokensSeq Char.isSpace contents)
+fun tokenEx() = Util.getTime (fn _ => Tokenize.tokensSeq Char.isSpace contents)
+
+val (tokens, tm) = Util.repeat (rep, (fn _ => tokenEx()))
+
+
 val _ = vprint ("tokenized in " ^ Time.fmt 4 tm ^ "s\n")
 
 fun put c = TextIO.output1 (TextIO.stdOut, c)

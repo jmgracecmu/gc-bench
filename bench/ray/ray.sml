@@ -395,35 +395,42 @@ val irreg : scene =
        , camFov = 75.0 }
     end
 
-val height = CommandLineArgs.parseInt "m" 200
-val width = CommandLineArgs.parseInt "n" 200
-val f = CommandLineArgs.parseString "f" ""
-val dop6 = CommandLineArgs.parseFlag "ppm6"
-val scene_name = CommandLineArgs.parseString "s" "rgbbox"
+structure CLA = CommandLineArgs
+
+val height = CLA.parseInt "m" 200
+val width = CLA.parseInt "n" 200
+val f = CLA.parseString "f" ""
+val dop6 = CLA.parseFlag "ppm6"
+val scene_name = CLA.parseString "s" "rgbbox"
 val scene = case scene_name of
                 "rgbbox" => rgbbox
               | "irreg" => irreg
               | s => raise Fail ("No such scene: " ^ s)
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
 
 val _ = print ("Using scene '" ^ scene_name ^ "' (-s to switch).\n")
 
-val t0 = Time.now ()
-val (objs, cam) = from_scene width height scene
-val t1 = Time.now ()
-val _ = print ("Scene BVH construction in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s.\n")
+fun rayEx() =
+  let
+    val ((objs, cam), tm1) = Util.getTime(fn _ => from_scene width height scene)
+    val (result, tm2) = Util.getTime(fn _ => render objs width height cam)
+  in
+    (result, tm1, tm2)
+  end
 
-val t0 = Time.now ()
-val result = render objs width height cam
-val t1 = Time.now ()
+val (result, tm1, tm2) = Util.repeat (rep, (fn _ => rayEx()))
+val _ = print ("Scene BVH construction in " ^ Time.fmt 4 tm1 ^ "s.\n")
 
-val _ = print ("Rendering in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s.\n")
+val _ = print ("Rendering in " ^ Time.fmt 4 tm2 ^ "s.\n")
 
 val writeImage = if dop6 then image2ppm6 else image2ppm
 
 val _ = if f <> "" then
             let val out = TextIO.openOut f
             in print ("Writing image to " ^ f ^ ".\n")
-               before writeImage out (render objs width height cam)
+               before writeImage out (result)
                before TextIO.closeOut out
             end
         else print ("-f not passed, so not writing image to file.\n")

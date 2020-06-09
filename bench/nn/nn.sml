@@ -290,6 +290,9 @@ val n = CLA.parseInt "N" 1000000
 val leafSize = CLA.parseInt "leafSize" 16
 val grain = CLA.parseInt "grain" 100
 val seed = CLA.parseInt "seed" 15210
+val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
+               SOME(a) => a
+             | NONE => 1
 
 fun genReal i =
   let
@@ -300,16 +303,20 @@ fun genReal i =
   end
 
 fun genPoint i = (genReal (2*i), genReal (2*i + 1))
+fun nnEx() =
+  let
+    val (input, tm) = Util.getTime (fn _ => Seq.tabulate genPoint n)
+    val _ = print ("generated input in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (input, tm) = Util.getTime (fn _ => Seq.tabulate genPoint n)
-val _ = print ("generated input in " ^ Time.fmt 4 tm ^ "s\n")
+    val (tree, tm) = Util.getTime (fn _ => NN.makeTree leafSize input)
+    val _ = print ("built quadtree in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (tree, tm) = Util.getTime (fn _ => NN.makeTree leafSize input)
-val _ = print ("built quadtree in " ^ Time.fmt 4 tm ^ "s\n")
-
-val (nbrs, tm) = Util.getTime (fn _ => NN.allNearestNeighbors grain tree)
-val _ = print ("found all neighbors in " ^ Time.fmt 4 tm ^ "s\n")
-
+    val (nbrs, tm) = Util.getTime (fn _ => NN.allNearestNeighbors grain tree)
+    val _ = print ("found all neighbors in " ^ Time.fmt 4 tm ^ "s\n")
+  in
+    (input, tree, nbrs)
+  end
+val (input, tree, nbrs) = Util.repeat (rep, (fn _ => nnEx()))
 (* now input[nbrs[i]] is the closest point to input[i] *)
 
 (* ==========================================================================
@@ -385,25 +392,33 @@ fun line (x1, y1) (x2, y2) =
     loop 0 (longest div 2) x1 y1
   end
 
-(* mark all nearest neighbors with straight red lines *)
-val _ = ForkJoin.parfor 10000 (0, Seq.length input) (fn i =>
-  line (pos (Seq.nth input i)) (pos (Seq.nth input (Seq.nth nbrs i))))
+fun nnEx2() =
+  let
+    (* mark all nearest neighbors with straight red lines *)
+    val t0 = Time.now ()
 
-(* mark input points as a pixel *)
-val _ =
-  ForkJoin.parfor 10000 (0, Seq.length input) (fn i =>
-    let
-      val (x, y) = pos (Seq.nth input i)
-      fun b spot = set spot black
-    in
-      b (x-1, y);
-      b (x, y-1);
-      b (x, y);
-      b (x, y+1);
-      b (x+1, y)
-    end)
+    val _ = ForkJoin.parfor 10000 (0, Seq.length input) (fn i =>
+      line (pos (Seq.nth input i)) (pos (Seq.nth input (Seq.nth nbrs i))))
 
-val t1 = Time.now ()
+    (* mark input points as a pixel *)
+    val _ =
+      ForkJoin.parfor 10000 (0, Seq.length input) (fn i =>
+        let
+          val (x, y) = pos (Seq.nth input i)
+          fun b spot = set spot black
+        in
+          b (x-1, y);
+          b (x, y-1);
+          b (x, y);
+          b (x, y+1);
+          b (x+1, y)
+        end)
+    val t1 = Time.now ()
+  in
+    (t0, t1)
+  end
+val (t0, t1) = Util.repeat (rep, (fn _ => nnEx2()))
+
 val _ = print ("generated image in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s\n")
 
 val (_, tm) = Util.getTime (fn _ => PPM.write filename image)
