@@ -117,5 +117,19 @@
     "config": ["mpl", "mpl-cc", "mlton"],
     "procs": ["1", "16"],
     "args": ["inputs/pano.ppm -num-seams 100"]
+  },
+  {
+    "tag": ["ocaml-game-of-life"],
+    "bench": ["ocaml-game-of-life"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
+    "args": ["-n_times 100"]
+  },
+  {
+    "tag": ["ocaml-lu-decomp"],
+    "bench": ["ocaml-lu-decomp"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "16"],
+    "args": ["-mat_size 2000 -chunk_size 64"]
   }
 ]

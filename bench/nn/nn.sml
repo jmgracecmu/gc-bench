@@ -337,14 +337,10 @@ val resolution = CLA.parseInt "resolution" 1000
 val width = resolution
 val height = resolution
 
-val white: PPM.pixel = {red=0w255, green=0w255, blue=0w255}
-val black: PPM.pixel = {red=0w0, green=0w0, blue=0w0}
-val red: PPM.pixel = {red=0w255, green=0w0, blue=0w0}
-
 val image =
   { width = width
   , height = height
-  , data = Seq.tabulate (fn _ => white) (width*height)
+  , data = Seq.tabulate (fn _ => Color.white) (width*height)
   }
 
 fun set (i, j) x =
@@ -359,7 +355,7 @@ fun pos (x, y) = (resolution - px x - 1, px y)
 
 fun horizontalLine i (j0, j1) =
   if j1 < j0 then horizontalLine i (j1, j0)
-  else Util.for (j0, j1) (fn j => set (i, j) red)
+  else Util.for (j0, j1) (fn j => set (i, j) Color.red)
 
 fun sign xx =
   case Int.compare (xx, 0) of LESS => ~1 | EQUAL => 0 | GREATER => 1
@@ -382,7 +378,7 @@ fun line (x1, y1) (x2, y2) =
       let
         val numerator = numerator + shortest;
       in
-        set (x, y) red;
+        set (x, y) Color.red;
         if numerator >= longest then
           loop (i+1) (numerator-longest) (x+dx1) (y+dy1)
         else
