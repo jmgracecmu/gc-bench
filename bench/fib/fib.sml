@@ -12,19 +12,18 @@ fun fib n =
       x + y
     end
 
-fun fibEx n = fib n
-
 val n = CLA.parseInt "N" 39
-val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
-               SOME(a) => a
-             | NONE => 1
+val _ = print ("N " ^ Int.toString n ^ "\n")
 
-val _ = print ("fib " ^ Int.toString n ^ "\n")
-
-val t0 = Time.now ()
-val result = Util.repeat (rep, (fn _ => fibEx n))
-val t1 = Time.now ()
-
-val _ = print ("finished in " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "s\n")
+val result = Benchmark.run "running fib" (fn _ => fib n)
 
 val _ = print ("result " ^ Int.toString result ^ "\n")
+
+val doCheck = CLA.parseFlag "check"
+val _ =
+  if not doCheck then
+    print ("do --check to check correctness\n")
+  else if result = sfib n then
+    print ("correct? yes\n")
+  else
+    print ("correct? no\n")

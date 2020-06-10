@@ -1,30 +1,28 @@
 structure CLA = CommandLineArgs
 
-
-fun dmmEx n =
-	let
-		val _ = print ("generating matrices of sidelength " ^ Int.toString n ^ "\n")
-
-		val input = TreeMatrix.tabulate n (fn (i, j) => 1.0)
-
-		val _ = print ("multiplying\n")
-
-		val (result, tm) = Util.getTime (fn _ => TreeMatrix.multiply (input, input))
-
-		val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
-	in
-		(result, tm)
-	end
-
-
-
 val n = CLA.parseInt "N" 1024
-val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
-               SOME(a) => a
-             | NONE => 1
-
-val (result, tm) = Util.repeat (rep, (fn _ => dmmEx n))
 val _ =
   if Util.boundPow2 n = n then ()
-  else raise Fail "sidelength N must be a power of two"
+  else Util.die "sidelength N must be a power of two"
 
+val _ = print ("generating matrices of sidelength " ^ Int.toString n ^ "\n")
+val input = TreeMatrix.tabulate n (fn (i, j) => 1.0)
+
+val result =
+  Benchmark.run "multiplying" (fn _ => TreeMatrix.multiply (input, input))
+
+val doCheck = CLA.parseFlag "check"
+val _ =
+  if not doCheck then () else
+  let
+    val stuff = TreeMatrix.flatten result
+    val correct =
+      Array.length stuff = n * n
+      andalso
+      SeqBasis.reduce 1000 (fn (a, b) => a andalso b) true (0, Array.length stuff)
+      (fn i => Util.closeEnough (Array.sub (stuff, i), Real.fromInt n))
+  in
+    print ("correct? ");
+    if correct then print "yes" else print "no";
+    print "\n"
+  end

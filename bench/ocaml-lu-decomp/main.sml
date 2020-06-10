@@ -185,20 +185,27 @@ val (a, tm) = Util.getTime (fn _ =>
   create (fn (i, j) => 1.0 + randReal 100.0 (i * mat_size + j)))
 val _ = print ("generated input in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (lu, tm) = Util.getTime (fn _ => lup a)
-val _ = print ("lu decomposition in " ^ Time.fmt 4 tm ^ "s\n")
-
-val ((l, u), tm) = Util.getTime (fn _ =>
+fun ludEx () =
   let
-    val l =
-      parallel_create (fn (i, j) =>
-        if i > j then get lu i j
-        else if i = j then 1.0
-        else 0.0)
-    val u =
-      parallel_create (fn (i, j) =>
-        if i <= j then get lu i j else 0.0)
+    val (lu, tm) = Util.getTime (fn _ => lup a)
+    val _ = print ("main decomposition in " ^ Time.fmt 4 tm ^ "s\n")
+
+    val ((l, u), tm) = Util.getTime (fn _ =>
+      let
+        val l =
+          parallel_create (fn (i, j) =>
+            if i > j then get lu i j
+            else if i = j then 1.0
+            else 0.0)
+        val u =
+          parallel_create (fn (i, j) =>
+            if i <= j then get lu i j else 0.0)
+      in
+        (l, u)
+      end)
+    val _ = print ("extracted L and U in " ^ Time.fmt 4 tm ^ "s\n")
   in
     (l, u)
-  end)
-val _ = print ("extracted into L and U in " ^ Time.fmt 4 tm ^ "s\n")
+  end
+
+val _ = Benchmark.run "running LU decomposition" ludEx

@@ -410,20 +410,12 @@ val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
                SOME(a) => a
              | NONE => 1
 
-val _ = print ("Using scene '" ^ scene_name ^ "' (-s to switch).\n")
+val _ = print ("Using scene '" ^ scene_name ^ "' (-s to switch)\n")
 
-fun rayEx() =
-  let
-    val ((objs, cam), tm1) = Util.getTime(fn _ => from_scene width height scene)
-    val (result, tm2) = Util.getTime(fn _ => render objs width height cam)
-  in
-    (result, tm1, tm2)
-  end
+val ((objs, cam), tm1) = Util.getTime(fn _ => from_scene width height scene)
+val _ = print ("Scene BVH construction in " ^ Time.fmt 4 tm1 ^ "s\n")
 
-val (result, tm1, tm2) = Util.repeat (rep, (fn _ => rayEx()))
-val _ = print ("Scene BVH construction in " ^ Time.fmt 4 tm1 ^ "s.\n")
-
-val _ = print ("Rendering in " ^ Time.fmt 4 tm2 ^ "s.\n")
+val result = Benchmark.run "rendering" (fn _ => render objs width height cam)
 
 val writeImage = if dop6 then image2ppm6 else image2ppm
 

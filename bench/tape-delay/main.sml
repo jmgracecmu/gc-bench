@@ -21,9 +21,8 @@ val _ = print ("decay " ^ Real.toString decayFactor ^ " ("
 val (snd, tm) = Util.getTime (fn _ => NewWaveIO.readSound infile)
 val _ = print ("read sound in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (esnd, tm) =
-  Util.getTime (fn _ => Signal.delay delaySamples decayFactor snd)
-val _ = print ("echo sound in " ^ Time.fmt 4 tm ^ "s\n")
+val esnd =
+  Benchmark.run "echoing" (fn _ => Signal.delay delaySamples decayFactor snd)
 
 val _ =
   if outfile = "" then

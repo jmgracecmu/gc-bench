@@ -82,17 +82,10 @@ fun runBenchmark () =
     fun randChar seed = Char.chr (Util.hash seed mod 256)
     fun randString n = CharVector.tabulate (n, randChar)
     val _ = print ("N " ^ Int.toString benchSize ^ "\n")
-    fun suffixEx() =
-      let
-        val (str, tm1) = Util.getTime (fn _ => randString benchSize)
-        val (result, tm2) = Util.getTime (fn _ => maker str)
-      in
-        (result, tm1, tm2)
-      end
-    val (result, tm1, tm2) = Util.repeat (rep, (fn _ => suffixEx()))
-
+    val (str, tm1) = Util.getTime (fn _ => randString benchSize)
     val _ = print ("generated input in " ^ Time.fmt 4 tm1 ^ "s\n")
-    val _ = print ("finished in " ^ Time.fmt 4 tm2 ^ "s\n")
+
+    val result = Benchmark.run "running suffix array" (fn _ => maker str)
 
     val _ =
       if not check then () else

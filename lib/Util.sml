@@ -1,6 +1,9 @@
 structure Util:
 sig
   val getTime: (unit -> 'a) -> ('a * Time.time)
+  val reportTime: (unit -> 'a) -> 'a
+
+  val closeEnough: real * real -> bool
 
   val die: string -> 'a
 
@@ -56,6 +59,17 @@ struct
     in
       (result, Time.- (t1, t0))
     end
+
+  fun reportTime f =
+    let
+      val (result, tm) = getTime f
+    in
+      print ("time " ^ Time.fmt 4 tm ^ "s\n");
+      result
+    end
+
+  fun closeEnough (x, y) =
+    Real.abs (x - y) <= 0.000001
 
   fun ceilDiv n k = 1 + (n-1) div k
 

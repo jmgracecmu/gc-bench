@@ -28,22 +28,11 @@ fun countSol n =
   end
 
 val n = CommandLineArgs.parseInt "N" 13
-val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
-               SOME(a) => a
-             | NONE => 1
+val _ = print ("N " ^ Int.toString n ^ "\n")
 
+val msg =
+  "counting number of " ^ Int.toString n ^ "x" ^ Int.toString n ^ " solutions"
 
-val _ = print ("counting number of " ^
-               Int.toString n ^ "x" ^ Int.toString n ^ " solutions\n")
-fun nqueensEx() =
-  let
-    val (result, tm) = Util.getTime (fn _ => countSol n)
-  in
-    (result, tm)
-  end
-
-val (result, tm) = Util.repeat (rep, (fn _ => nqueensEx()))
-
-val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
+val result = Benchmark.run msg (fn _ => countSol n)
 
 val _ = print ("result " ^ Int.toString result ^ "\n")

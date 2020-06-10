@@ -177,8 +177,8 @@ fun repeat n =
     0 => ()
   | _ => (next (); repeat (n-1))
 
-val (_, tm) = Util.getTime (fn _ => repeat n_times)
-val _ = print ("did " ^ Int.toString n_times ^ " iterations in " ^ Time.fmt 4 tm ^ "s\n")
+val msg = "doing " ^ Int.toString n_times ^ " iterations"
+val _ = Benchmark.run msg (fn _ => repeat n_times)
 
 (* ===========================================================================
  * SAM_NOTE: rest is my stuff. Just outputting the result.

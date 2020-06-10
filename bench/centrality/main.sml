@@ -20,8 +20,7 @@ val (_, tm) = Util.getTime (fn _ =>
     "or might have duplicate- or self-edges\n"))
 val _ = print ("parity check in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (result, tm) = Util.getTime (fn _ => BC.bc graph source)
-val _ = print ("centrality finished in " ^ Time.fmt 4 tm ^ "s\n")
+val result = Benchmark.run "running centrality" (fn _ => BC.bc graph source)
 
 val maxDep =
   SeqBasis.reduce 10000 Real.max 0.0 (0, Seq.length result) (Seq.nth result)

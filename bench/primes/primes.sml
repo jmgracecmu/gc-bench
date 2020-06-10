@@ -36,24 +36,9 @@ fun primes n =
  *)
 
 val n = CLA.parseInt "N" (100 * 1000 * 1000)
-val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
-               SOME(a) => a
-             | NONE => 1
 
-val _ = print ("generating primes up to " ^ Int.toString n ^ "\n")
-
-fun primesEx() =
-  let
-    val ((result1, result2), tm) =  Util.getTime(fn _ =>
-                                      ForkJoin.fork(fn() => primes n, fn() => primes n)
-                                    )
-  in
-    (result1, tm)
-  end
-
-val (result, tm) = Util.repeat (rep, (fn _ => primesEx()))
-
-val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
+val msg = "generating primes up to " ^ Int.toString n
+val result = Benchmark.run msg (fn _ => primes n)
 
 val numPrimes = Array.length result
 val _ = print ("number of primes " ^ Int.toString numPrimes ^ "\n")

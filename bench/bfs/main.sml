@@ -31,8 +31,7 @@ val (_, tm) = Util.getTime (fn _ =>
     "or might have duplicate- or self-edges\n"))
 val _ = print ("parity check in " ^ Time.fmt 4 tm ^ "s\n")
 
-val (P, tm) = Util.getTime (fn _ => BFS.bfs graph source)
-val _ = print ("bfs finished in " ^ Time.fmt 4 tm ^ "s\n")
+val P = Benchmark.run "running bfs" (fn _ => BFS.bfs graph source)
 
 val numVisited =
   SeqBasis.reduce 10000 op+ 0 (0, Seq.length P)

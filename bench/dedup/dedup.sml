@@ -193,7 +193,6 @@ fun vprint str =
 val (contents, tm) = Util.getTime (fn _ => ReadFile.contentsSeq filename)
 val _ = vprint ("read file in " ^ Time.fmt 4 tm ^ "s\n")
 
-
 fun dedupEx() =
   let
     val (tokens, tm) = Util.getTime (fn _ => Tokenize.tokens Char.isSpace contents)
@@ -202,10 +201,10 @@ fun dedupEx() =
     val (result, tm) = Util.getTime (fn _ => dedup op= hash1 hash2 tokens)
     val _ = vprint ("deduplicated in " ^ Time.fmt 4 tm ^ "s\n")
   in
-    (result, tm)
+    result
   end
 
-val (result, tm) = Util.repeat (rep, (fn _ => dedupEx()))
+val result = Benchmark.run "running dedup" dedupEx
 
 fun put c = TextIO.output1 (TextIO.stdOut, c)
 val _ =

@@ -17,25 +17,13 @@ fun gen seed i = Util.hash64 (Word64.xorb (Word64.fromInt i, seed))
 
 val n = CLA.parseInt "N" (1000 * 1000 * 1000)
 val seed = CLA.parseInt "seed" 0
-val rep = case (Int.fromString (CLA.parseString "repeat" "1")) of
-               SOME(a) => a
-             | NONE => 1
 
 val _ = print ("tabulate " ^ Int.toString n ^ " pseudo-random 64-bit words\n")
 val _ = print ("seed " ^ Int.toString seed ^ "\n")
 
 val seed' = Util.hash64 (Word64.fromInt seed)
 
-
-fun randomEx() =
-	let
-		val (result, tm) = Util.getTime(fn _ => tabulate (n, gen seed'))
-	in
-		(result, tm)
-	end
-val (result, tm) = Util.repeat (rep, (fn _ => randomEx()))
-
-val _ = print ("finished in " ^ Time.fmt 4 tm ^ "s\n")
+val result = Benchmark.run "tabulating" (fn _ => tabulate (n, gen seed'))
 
 fun str x = Word64.fmt StringCvt.HEX x
 val _ = print ("result " ^ Util.summarizeArray 3 str result ^ "\n")
