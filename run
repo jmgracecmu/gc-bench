@@ -1,4 +1,10 @@
 #!/bin/bash
 
+NOW=$(date '+%y%m%d-%H%M%S')
+
+# this selects all experiments that are NOT working-set experiments
+# all of the extra arguments get sent to scripts/runcmds.py with $@ below
 scripts/gencmds.py exp.json \
-| scripts/runcmds.py --output results/$(date '+%y%m%d-%H%M%S') $@
+| grep -v "\"config\": \"mlton-working-set\"" \
+| scripts/runcmds.py --output results/$NOW $@
+echo "[INFO] wrote timings results to 'results/$NOW'"

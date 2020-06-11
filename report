@@ -50,15 +50,20 @@ def safeInsert(dict, key, value):
 def reCompile(exp):
   return re.compile(exp, re.MULTILINE)
 
+# def parseCommaInteger(s):
+#   return int(s.replace(",", ""))
+
 statsPatterns = \
   [ ("time", int, reCompile(r"^wall\s+(\d+)$"))
   , ("space", int, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
+  # , ("working-set", parseCommaInteger, reCompile(r"^max bytes live: (.*) bytes$"))
   ]
 
 renameConfig = {
   'mlton': 'mlton',
   'mpl': 'mpl',
-  'mpl-cc': 'mpl-cc'
+  'mpl-cc': 'mpl-cc',
+  'mlton-working-set': 'mlton-working-set'
 }
 
 foundTags = set()
@@ -93,14 +98,12 @@ def findTrials(data, config, tag, procs):
   for row in data:
     if (row['config'] == config and \
         row['tag'] == tag and \
-        row['procs'] == procs and \
-        'time' in row and \
-        'space' in row):
+        row['procs'] == procs):
       result.append(row)
   return result
 
 def averageTime(data, config, tag, procs):
-  tms = [ r['time'] for r in findTrials(data, config, tag, procs) ]
+  tms = [ r['time'] for r in findTrials(data, config, tag, procs) if 'time' in r ]
 
   # cut out the max time to account for possible file IO slowdown
   # (this should only happen the first time the file is loaded)
@@ -114,11 +117,18 @@ def averageTime(data, config, tag, procs):
     raise ValueError('Error processing average time of config={}, tag={}, procs={}'.format(config, tag, procs))
 
 def averageSpace(data, config, tag, procs):
-  sp = [ r['space'] for r in findTrials(data, config, tag, procs) ]
+  sp = [ r['space'] for r in findTrials(data, config, tag, procs) if 'space' in r ]
   try:
     return sum(sp) / len(sp)
   except:
     raise ValueError('Error processing average space of config={}, tag={}, procs={}'.format(config, tag, procs))
+
+# def workingSetSize(data, tag):
+#   sp = [ r['working-set'] for r in findTrials(data, "mlton-working-set", tag, 1) if 'working-set' in r ]
+#   try:
+#     return sp[0] / 1000.0  # working-set is in bytes; divide by 1000 to get KB
+#   except:
+#     raise ValueError('Error processing working-set size of tag={}'.format(tag))
 
 def tm(t):
   # if t > 10.0:
@@ -215,24 +225,47 @@ def table(rows, align=None):
 
 # =========================================================================
 
+def mostRecentResultsFile(ws=False):
+  files = os.listdir("results")
+  pattern = r'\d{6}-\d{6}'
+  if ws:
+    pattern = r'ws-' + pattern
+  # A bit of a hack. Filenames are ...YYMMDD-hhmmss, so lexicographic string
+  # comparison is correct for finding the most recent (i.e. maximum) file
+  mostRecent = max(p for p in files if re.match(pattern, p))
+  return mostRecent
+
 if len(sys.argv) > 1:
-  inputFile = sys.argv[1]
+  timingsFile = sys.argv[1]
 else:
   print("[INFO] no results file argument; finding most recent")
-  files = os.listdir("results")
   try:
-    # A bit of a hack. Filenames are YYMMDD-hhmmss, so lexicographic string
-    # comparison is correct for finding the most recent (i.e. maximum) file
-    mostRecent = max(p for p in files if re.match(r'\d{6}-\d{6}', p))
+    mostRecent = mostRecentResultsFile()
   except:
     print("[ERR] could not find most recent results file\n " + \
           "  check that these are formatted as 'YYMMSS-hhmmss'")
     sys.exit(1)
-  inputFile = os.path.join('results', mostRecent)
+  timingsFile = os.path.join('results', mostRecent)
 
-print("[INFO] reading {}\n".format(inputFile))
-with open(inputFile, 'r') as data:
+if len(sys.argv) > 2:
+  workingSetFile = sys.argv[2]
+else:
+  print("[INFO] no working-set file argument; finding most recent")
+  try:
+    mostRecent = mostRecentResultsFile(ws=True)
+  except:
+    print("[ERR] could not find most recent results/ws-* file\n " + \
+          "  check that these are formatted as 'ws-YYMMSS-hhmmss'")
+    sys.exit(1)
+  workingSetFile = os.path.join('results', mostRecent)
+
+print("[INFO] reading {}\n".format(timingsFile))
+with open(timingsFile, 'r') as data:
   resultsData = json_careful_readlines(data)
+print("[INFO] reading {}\n".format(workingSetFile))
+with open(workingSetFile, 'r') as data:
+  workingSetData = json_careful_readlines(data)
+WS = [ parseStats(row) for row in workingSetData ]
 D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
 maxp = max(foundProcs)
@@ -257,10 +290,11 @@ print("TIMINGS")
 print(table(tt, defaultAlign))
 print("")
 
-headers = ['Benchmark', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
+headers = ['Benchmark', 'WS', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
 tt = [headers, "="]
 for tag in foundTags:
   thisRow = [tag,
+             sp(averageSpace(WS, 'mlton-working-set', tag, 1)),
              sp(averageSpace(D, 'mlton', tag, 1)),
              sp(averageSpace(D, 'mpl', tag, 1)),
              sp(averageSpace(D, 'mpl-cc', tag, 1)),
@@ -349,4 +383,4 @@ print("MPL/CC versus MPL")
 print(table(tt, defaultAlign))
 print("")
 
-print("[INFO] done reporting {}".format(inputFile))
+print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))

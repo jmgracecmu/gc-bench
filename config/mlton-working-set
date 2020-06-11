@@ -1,0 +1,3 @@
+COMPILER=mlton-mc
+FLAGS="-codegen c -mark-cards false -runtime 'copy-ratio 1.1 live-ratio 1.1 grow-ratio 1.1'"
+COMPAT=mlton

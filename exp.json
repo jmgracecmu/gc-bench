@@ -2,133 +2,133 @@
   {
     "tag": ["fib"],
     "bench": ["fib"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 42"]
   },
   {
     "tag": ["random"],
     "bench": ["random"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 1000000000"]
   },
   {
     "tag": ["dmm"],
     "bench": ["dmm"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 1024"]
   },
   {
     "tag": ["nn"],
     "bench": ["nn"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 1000000"]
   },
   {
     "tag": ["msort"],
     "bench": ["msort"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 10000000"]
   },
   {
     "tag": ["nqueens"],
     "bench": ["nqueens"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 13"]
   },
   {
     "tag": ["primes"],
     "bench": ["primes"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 100000000"]
   },
   {
     "tag": ["ray"],
     "bench": ["ray"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-n 1000 -m 1000"]
   },
   {
     "tag": ["tokens"],
     "bench": ["tokens"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["inputs/words64.txt --verbose --no-output"]
   },
   {
     "tag": ["dedup"],
     "bench": ["dedup"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["inputs/words64.txt --verbose --no-output"]
   },
   {
     "tag": ["suffix-array"],
     "bench": ["suffix-array"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["--benchmark -N 10000000"]
   },
   {
     "tag": ["palindrome"],
     "bench": ["palindrome"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 1000000"]
   },
   {
     "tag": ["grep"],
     "bench": ["grep"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["ee inputs/words64.txt --benchmark"]
   },
   {
     "tag": ["quickhull"],
     "bench": ["quickhull"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-N 10000000"]
   },
   {
     "tag": ["reverb"],
     "bench": ["reverb"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["inputs/mangore-waltz.wav"]
   },
   {
     "tag": ["centrality"],
     "bench": ["centrality"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["inputs/rmat-100M-symm-bin"]
   },
   {
     "tag": ["seam-carve"],
     "bench": ["seam-carve"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["inputs/pano.ppm -num-seams 100"]
   },
   {
     "tag": ["ocaml-game-of-life"],
     "bench": ["ocaml-game-of-life"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-n_times 100"]
   },
   {
     "tag": ["ocaml-lu-decomp"],
     "bench": ["ocaml-lu-decomp"],
-    "config": ["mpl", "mpl-cc", "mlton"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-mat_size 2000 -chunk_size 64"]
   }

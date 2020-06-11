@@ -1,0 +1,10 @@
+#!/bin/bash
+
+NOW=$(date '+%y%m%d-%H%M%S')
+
+# this selects only the working-set experiments
+# all of the extra arguments get sent to scripts/runcmds.py with $@ below
+scripts/gencmds.py exp.json \
+| grep "\"config\": \"mlton-working-set\"" \
+| scripts/runcmds.py --output results/ws-$NOW $@
+echo "[INFO] wrote working-set results to 'results/ws-$NOW'"
