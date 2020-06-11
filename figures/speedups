@@ -195,17 +195,17 @@ def pcd(b, a):
   xx = 100.0 * (b-a) / abs(a)
   return xx
 
-def mplCCOverhead(tag):
-  tcc = tm(averageTime(D, 'mpl-cc', tag, 1))
+def mplCCSpeedup(tag):
+  tcc = tm(averageTime(D, 'mpl-cc', tag, maxp))
   tb = tm(averageTime(D, 'mlton', tag, 1))
   # return pcd(tcc, tb)
-  return tcc / tb
+  return tb / tcc
 
-def mplOverhead(tag):
-  tcc = tm(averageTime(D, 'mpl', tag, 1))
+def mplSpeedup(tag):
+  tcc = tm(averageTime(D, 'mpl', tag, maxp))
   tb = tm(averageTime(D, 'mlton', tag, 1))
   # return pcd(tcc, tb)
-  return tcc / tb
+  return tb / tcc
 
 def interleave(a, b):
   return [ x for t in zip(a, b) for x in t ]
@@ -218,13 +218,13 @@ def right(ab):
 foundTags = list(foundTags)
 displayTags = [ "{}({})".format(t, tm(averageTime(D, 'mlton', t, 1))) for t in foundTags ]
 N = len(foundTags)
-yA = [ mplCCOverhead(tag) for tag in foundTags ]
-yB = [ mplOverhead(tag) for tag in foundTags ]
+yA = [ mplCCSpeedup(tag) for tag in foundTags ]
+yB = [ mplSpeedup(tag) for tag in foundTags ]
 y = interleave(yA, yB)
 
-ytickSpacing = 0.1
+ytickSpacing = 1.0
 yMin = 1.0
-yMax = 2.25
+yMax = max(y) + 0.5
 
 yBottom = 1.0
 heights = [ h-yBottom for h in y ]
@@ -241,7 +241,7 @@ fig.set_size_inches(12, 5)
 ax.set_axisbelow(True)
 ax.grid(axis='y')
 plt.tick_params(direction='out')
-ax.set_ylabel('Overhead')
+ax.set_ylabel('Speedup')
 ax.set_ylim([yMin,yMax])
 ax.set_xlim([min(x)-1,max(x)+1])
 ax.yaxis.set_major_locator(ticker.MultipleLocator(ytickSpacing))
@@ -253,14 +253,14 @@ ax.yaxis.set_ticks_position('left')
 ax.xaxis.set_ticks_position('bottom')
 plt.bar(left(x), left(heights), align='center', bottom=1, color='gold', width=barWidth, label='LC+CC')
 plt.bar(right(x), right(heights), align='center', bottom=1, color='black', width=barWidth, label='LC only')
-ax.legend(loc='upper left')
+ax.legend(loc='best')
 
 offset = transforms.ScaledTranslation(10/72., 0, fig.dpi_scale_trans)
 for label in ax.xaxis.get_majorticklabels():
   label.set_transform(label.get_transform() + offset)
 
 def ann(t):
-  return "{:.2f}".format(t)
+  return "{:.1f}".format(t)
 
 for i in xrange(0, 2*N, 2):
   if abs(y[i] - y[i+1]) < 0.02:
@@ -268,16 +268,16 @@ for i in xrange(0, 2*N, 2):
     if yy >= yMax:
       plt.annotate(ann(yy), (xCenters[i/2] + 1.2 * barWidth/2, yMax), ha='right', va='top', fontsize=7)
     else:
-      plt.annotate(ann(yy), (xCenters[i/2], yy+0.01), ha='center', fontsize=7)
+      plt.annotate(ann(yy), (xCenters[i/2], yy+0.1), ha='center', fontsize=7)
   else:
     if y[i] >= yMax:
       plt.annotate(ann(y[i]), (xCenters[i/2] - 1.2 * barWidth, yMax), ha='right', va='top', fontsize=7)
     else:
-      plt.annotate(ann(y[i]), (x[i], y[i]+0.01), ha='center', fontsize=7)
+      plt.annotate(ann(y[i]), (x[i], y[i]+0.1), ha='center', fontsize=7)
     if y[i+1] >= yMax:
       plt.annotate(ann(y[i+1]), (xCenters[i/2] + 1.2 * barWidth, yMax), ha='left', va='top', fontsize=7)
     else:
-      plt.annotate(ann(y[i+1]), (x[i+1], y[i+1]+0.01), ha='center', fontsize=7)
+      plt.annotate(ann(y[i+1]), (x[i+1], y[i+1]+0.1), ha='center', fontsize=7)
 
 
 # for i in xrange(0, 2*N):
@@ -290,6 +290,6 @@ for i in xrange(0, 2*N, 2):
 #     plt.annotate(str(tm(y[i])), (x[i], y[i]+0.01), ha='center', fontsize=8)
 
 fig.tight_layout()
-plt.savefig('overheads.pdf')
+plt.savefig('speedups.pdf')
 
 print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
