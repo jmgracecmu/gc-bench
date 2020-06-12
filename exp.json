@@ -109,7 +109,7 @@
     "bench": ["centrality"],
     "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
-    "args": ["inputs/rmat-100M-symm-bin"]
+    "args": ["inputs/rmat-10M-symm-bin"]
   },
   {
     "tag": ["seam-carve"],
