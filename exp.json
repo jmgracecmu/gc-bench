@@ -123,13 +123,20 @@
     "bench": ["ocaml-game-of-life"],
     "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
-    "args": ["-n_times 100"]
+    "args": ["-n_times 256"]
   },
   {
     "tag": ["ocaml-lu-decomp"],
     "bench": ["ocaml-lu-decomp"],
     "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
-    "args": ["-mat_size 2000 -chunk_size 64"]
+    "args": ["-mat_size 2048 -chunk_size 64"]
+  },
+  {
+    "tag": ["ocaml-mandelbrot"],
+    "bench": ["ocaml-mandelbrot"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
+    "procs": ["1", "16"],
+    "args": ["-w 16000"]
   }
 ]
