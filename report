@@ -114,14 +114,14 @@ def averageTime(data, config, tag, procs):
   try:
     return sum(tms) / len(tms)
   except:
-    raise ValueError('Error processing average time of config={}, tag={}, procs={}'.format(config, tag, procs))
+    return None
 
 def averageSpace(data, config, tag, procs):
   sp = [ r['space'] for r in findTrials(data, config, tag, procs) if 'space' in r ]
   try:
     return sum(sp) / len(sp)
   except:
-    raise ValueError('Error processing average space of config={}, tag={}, procs={}'.format(config, tag, procs))
+    return None
 
 # def workingSetSize(data, tag):
 #   sp = [ r['working-set'] for r in findTrials(data, "mlton-working-set", tag, 1) if 'working-set' in r ]
@@ -131,6 +131,8 @@ def averageSpace(data, config, tag, procs):
 #     raise ValueError('Error processing working-set size of tag={}'.format(tag))
 
 def tm(t):
+  if t is None:
+    return None
   # if t > 10.0:
   #   return int(round(t))
   try:
@@ -145,11 +147,15 @@ def tm(t):
     return None
 
 def noLeadZero(t):
+  if t is None:
+    return None
   if t < 1:
     return str(t).replace('0', '', 1)
   return str(t)
 
 def sp(kb):
+  if kb is None:
+    return None
   num = kb
   for unit in ['K','M','G']:
     if num < 1000:
@@ -270,12 +276,14 @@ D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
 maxp = max(foundProcs)
 
+orderedTags = sorted(list(foundTags))
+
 def defaultAlign(i):
   return "r" if i == 0 else "l"
 
 headers = ['Benchmark', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
 tt = [headers, "="]
-for tag in foundTags:
+for tag in orderedTags:
   thisRow = [tag,
              tm(averageTime(D, 'mlton', tag, 1)),
              tm(averageTime(D, 'mpl', tag, 1)),
@@ -283,7 +291,7 @@ for tag in foundTags:
              tm(averageTime(D, 'mpl', tag, maxp)),
              tm(averageTime(D, 'mpl-cc', tag, maxp))
             ]
-  thisRow = [thisRow[0]] + [str(x) for x in thisRow[1:]]
+  thisRow = [thisRow[0]] + [str(x) if x is not None else "--" for x in thisRow[1:]]
   tt.append(thisRow)
 
 print("TIMINGS")
@@ -292,7 +300,7 @@ print("")
 
 headers = ['Benchmark', 'WS', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
 tt = [headers, "="]
-for tag in foundTags:
+for tag in orderedTags:
   thisRow = [tag,
              sp(averageSpace(WS, 'mlton-working-set', tag, 1)),
              sp(averageSpace(D, 'mlton', tag, 1)),
@@ -301,6 +309,7 @@ for tag in foundTags:
              sp(averageSpace(D, 'mpl', tag, maxp)),
              sp(averageSpace(D, 'mpl-cc', tag, maxp))
             ]
+  thisRow = [ (x if x is not None else "--") for x in thisRow ]
   tt.append(thisRow)
 
 print("SPACE (MAX RESIDENCY)")
@@ -309,12 +318,21 @@ print("")
 
 # percent difference (b-a)/|a|
 def pcd(b, a):
-  xx = 100.0 * (b-a) / abs(a)
-  result = ("+" if xx >= 0.0 else "") + ("{:.1f}%".format(xx))
-  if xx > 0.0:
-    return red(result)
-  else:
-    return result
+  try:
+    xx = 100.0 * (b-a) / abs(a)
+    result = ("+" if xx >= 0.0 else "") + ("{:.1f}%".format(xx))
+    if xx > 0.0:
+      return red(result)
+    else:
+      return result
+  except:
+    return None
+
+def sd(x, y):
+  try:
+    return x / y
+  except:
+    return None
 
 header1 = ["", "Overhead", None, "Speedup({})".format(maxp), None, "Blowup(1)", None, "Blowup({})".format(maxp), None]
 header2 = ['Benchmark',
@@ -327,7 +345,7 @@ header2 = ['Benchmark',
            'MPL',
            'MPL/CC']
 tt = [header1, header2, "="]
-for tag in foundTags:
+for tag in orderedTags:
   tMLton = tm(averageTime(D, 'mlton', tag, 1))
   tMPL1 = tm(averageTime(D, 'mpl', tag, 1))
   tMPLp = tm(averageTime(D, 'mpl', tag, maxp))
@@ -339,17 +357,17 @@ for tag in foundTags:
   rMPLcc1 = averageSpace(D, 'mpl-cc', tag, 1)
   rMPLccp = averageSpace(D, 'mpl-cc', tag, maxp)
 
-  overhead = tm(tMPL1 / tMLton)
-  overheadcc = tm(tMPLcc1 / tMLton)
-  speedup = tm(tMLton / tMPLp)
-  speedupcc = tm(tMLton / tMPLccp)
-  blowup1 = tm(rMPL1 / rMLton)
-  blowupcc1 = tm(rMPLcc1 / rMLton)
-  blowupp = tm(rMPLp / rMLton)
-  blowupccp = tm(rMPLccp / rMLton)
+  overhead   = tm(sd(tMPL1, tMLton))
+  overheadcc = tm(sd(tMPLcc1, tMLton))
+  speedup    = tm(sd(tMLton, tMPLp))
+  speedupcc  = tm(sd(tMLton, tMPLccp))
+  blowup1    = tm(sd(rMPL1, rMLton))
+  blowupcc1  = tm(sd(rMPLcc1, rMLton))
+  blowupp    = tm(sd(rMPLp, rMLton))
+  blowupccp  = tm(sd(rMPLccp, rMLton))
 
   row = [tag, overhead, overheadcc, speedup, speedupcc, blowup1, blowupcc1, blowupp, blowupccp]
-  row = [row[0]] + map(lambda x: "{:.1f}".format(x), row[1:])
+  row = [row[0]] + map(lambda x: "{:.1f}".format(x) if x is not None else "--", row[1:])
   tt.append(row)
 
 print("COMPARISON WITH MLTON")
@@ -359,7 +377,7 @@ print("")
 
 header = ["Benchmark", "Time(1)", "Time({})".format(maxp), "Space(1)", "Space({})".format(maxp)]
 tt = [header, "="]
-for tag in foundTags:
+for tag in orderedTags:
   # tMLton = tm(averageTime(D, 'mlton', tag, 1))
   tMPL1 = tm(averageTime(D, 'mpl', tag, 1))
   tMPLp = tm(averageTime(D, 'mpl', tag, maxp))
@@ -377,6 +395,7 @@ for tag in foundTags:
   rp = pcd(rMPLccp, rMPLp)
 
   row = [tag, t1, tp, r1, rp]
+  row = [x if x is not None else "--" for x in row]
   tt.append(row)
 
 print("MPL/CC versus MPL")

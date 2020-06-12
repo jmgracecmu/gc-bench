@@ -138,5 +138,12 @@
     "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-w 16000"]
+  },
+  {
+    "tag": ["ocaml-binarytrees5"],
+    "bench": ["ocaml-binarytrees5"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
+    "procs": ["1", "16"],
+    "args": ["-max_depth 23"]
   }
 ]
