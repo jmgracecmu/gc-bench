@@ -145,5 +145,12 @@
     "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
     "procs": ["1", "16"],
     "args": ["-max_depth 23"]
+  },
+  {
+    "tag": ["ocaml-nbody"],
+    "bench": ["ocaml-nbody"],
+    "config": ["mpl", "mpl-cc", "mlton", "mlton-working-set"],
+    "procs": ["1", "16"],
+    "args": ["-n 512 -num_bodies 2048"]
   }
 ]
