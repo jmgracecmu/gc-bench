@@ -156,7 +156,7 @@ def noLeadZero(t):
 def sp(kb):
   if kb is None:
     return None
-  num = kb
+  num = (kb * 1024) / 1000 # convert from kiB to kB
   for unit in ['K','M','G']:
     if num < 1000:
       return "%3.1f %s" % (num, unit)
