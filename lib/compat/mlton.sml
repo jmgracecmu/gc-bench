@@ -33,3 +33,21 @@ struct
 end
 
 structure ReadFile = PosixReadFile
+
+structure GCStats:
+sig
+  val report: unit -> unit
+end =
+struct
+
+  fun p name thing =
+    print (name ^ ": " ^ thing () ^ "\n")
+
+  fun report () =
+    let
+    in
+      print ("======== GC Stats ========\n");
+      print "none yet...\n"
+    end
+
+end

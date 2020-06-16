@@ -15,4 +15,5 @@ in
   structure ForkJoin
   structure Concurrency
   structure ReadFile
+  structure GCStats
 end

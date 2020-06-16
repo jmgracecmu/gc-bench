@@ -62,7 +62,17 @@ struct
       p "local reclaimed" (LargeInt.toString o MPL.GC.localBytesReclaimed);
       p "num local" (LargeInt.toString o MPL.GC.numLocalGCs);
       p "local gc time" (LargeInt.toString o Time.toMilliseconds o MPL.GC.localGCTime);
-      p "promo time" (LargeInt.toString o Time.toMilliseconds o MPL.GC.promoTime)
+      p "promo time" (LargeInt.toString o Time.toMilliseconds o MPL.GC.promoTime);
+      print "\n";
+
+      p "root cc reclaimed" (LargeInt.toString o MPL.GC.rootBytesReclaimed);
+      p "num root cc" (LargeInt.toString o MPL.GC.numRootCCs);
+      p "root cc time" (LargeInt.toString o Time.toMilliseconds o MPL.GC.rootCCTime);
+      print "\n";
+
+      p "internal cc reclaimed" (LargeInt.toString o MPL.GC.internalBytesReclaimed);
+      p "num internal cc" (LargeInt.toString o MPL.GC.numInternalCCs);
+      p "internal cc time" (LargeInt.toString o Time.toMilliseconds o MPL.GC.internalCCTime)
     end
 
 end

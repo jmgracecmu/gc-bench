@@ -426,3 +426,5 @@ val _ = if f <> "" then
                before TextIO.closeOut out
             end
         else print ("-f not passed, so not writing image to file.\n")
+
+val _ = GCStats.report ()

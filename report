@@ -53,9 +53,30 @@ def reCompile(exp):
 # def parseCommaInteger(s):
 #   return int(s.replace(",", ""))
 
+# local reclaimed: 32859049984
+# num local: 20999
+# local gc time: 4541
+# promo time: 8
+
+def parseKiB(kibStr):
+  return int(kibStr) * 1024.0 / 1000.0
+
+def parseB(bytesStr):
+  return int(bytesStr) / 1000.0
+
 statsPatterns = \
   [ ("time", int, reCompile(r"^wall\s+(\d+)$"))
-  , ("space", int, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
+  , ("space", parseKiB, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
+  , ("num-local", int, reCompile(r"^num local: (\d+)$"))
+  , ("local-reclaimed", parseB, reCompile(r"^local reclaimed: (\d+)$"))
+  , ("local-time", int, reCompile(r"^local gc time: (\d+)$"))
+  , ("promo-time", int, reCompile(r"^promo time: (\d+)$"))
+  , ("root-reclaimed", parseB, reCompile(r"^root cc reclaimed: (\d+)$"))
+  , ("internal-reclaimed", parseB, reCompile(r"^internal cc reclaimed: (\d+)$"))
+  , ("num-root", int, reCompile(r"^num root cc: (\d+)$"))
+  , ("num-internal", int, reCompile(r"^num internal cc: (\d+)$"))
+  , ("root-time", int, reCompile(r"^root cc time: (\d+)$"))
+  , ("internal-time", int, reCompile(r"^internal cc time: (\d+)$"))
   # , ("working-set", parseCommaInteger, reCompile(r"^max bytes live: (.*) bytes$"))
   ]
 
@@ -102,6 +123,81 @@ def findTrials(data, config, tag, procs):
       result.append(row)
   return result
 
+def averageLocalGCTime(data, config, tags, procs):
+  tms = [ r['local-time'] for r in findTrials(data, config, tag, procs) if 'local-time' in r ]
+  try:
+    return float(sum(tms)) / len(tms) / 1000.0
+  except:
+    return None
+
+def averagePromoTime(data, config, tags, procs):
+  tms = [ r['promo-time'] for r in findTrials(data, config, tag, procs) if 'promo-time' in r ]
+  try:
+    return float(sum(tms)) / len(tms) / 1000.0
+  except:
+    return None
+
+def averageNumLocalGCs(data, config, tags, procs):
+  counts = [ r['num-local'] for r in findTrials(data, config, tag, procs) if 'num-local' in r ]
+  try:
+    return int(round(float(sum(counts)) / len(counts)))
+  except:
+    return None
+
+def averageLocalReclaimed(data, config, tags, procs):
+  bs = [ r['local-reclaimed'] for r in findTrials(data, config, tag, procs) if 'local-reclaimed' in r ]
+  try:
+    return sum(bs) / len(bs)
+  except:
+    return None
+
+# =====================================================================
+# CC statistics
+
+def averageRootReclaimed(data, config, tags, procs):
+  bs = [ r['root-reclaimed'] for r in findTrials(data, config, tag, procs) if 'root-reclaimed' in r ]
+  try:
+    return sum(bs) / len(bs)
+  except:
+    return None
+
+def averageInternalReclaimed(data, config, tags, procs):
+  bs = [ r['internal-reclaimed'] for r in findTrials(data, config, tag, procs) if 'internal-reclaimed' in r ]
+  try:
+    return sum(bs) / len(bs)
+  except:
+    return None
+
+def averageNumRootCCs(data, config, tags, procs):
+  bs = [ r['num-root'] for r in findTrials(data, config, tag, procs) if 'num-root' in r ]
+  try:
+    return int(round(float(sum(bs)) / len(bs)))
+  except:
+    return None
+
+def averageNumInternalCCs(data, config, tags, procs):
+  bs = [ r['num-internal'] for r in findTrials(data, config, tag, procs) if 'num-internal' in r ]
+  try:
+    return int(round(float(sum(bs)) / len(bs)))
+  except:
+    return None
+
+def averageTimeRootCC(data, config, tags, procs):
+  tms = [ r['root-time'] for r in findTrials(data, config, tag, procs) if 'root-time' in r ]
+  try:
+    return float(sum(tms)) / len(tms) / 1000.0
+  except:
+    return None
+
+def averageTimeInternalCC(data, config, tags, procs):
+  tms = [ r['internal-time'] for r in findTrials(data, config, tag, procs) if 'internal-time' in r ]
+  try:
+    return float(sum(tms)) / len(tms) / 1000.0
+  except:
+    return None
+
+# ======================================================================
+
 def averageTime(data, config, tag, procs):
   tms = [ r['time'] for r in findTrials(data, config, tag, procs) if 'time' in r ]
 
@@ -133,6 +229,8 @@ def averageSpace(data, config, tag, procs):
 def tm(t):
   if t is None:
     return None
+  if t == 0.0:
+    return int(0)
   # if t > 10.0:
   #   return int(round(t))
   try:
@@ -156,7 +254,7 @@ def noLeadZero(t):
 def sp(kb):
   if kb is None:
     return None
-  num = (kb * 1024) / 1000 # convert from kiB to kB
+  num = kb
   for unit in ['K','M','G']:
     if num < 1000:
       return "%3.1f %s" % (num, unit)
@@ -165,6 +263,8 @@ def sp(kb):
 
 # =========================================================================
 
+delimWidth = 2
+
 def makeline(row, widths, align):
   bits = []
   i = 0
@@ -172,7 +272,7 @@ def makeline(row, widths, align):
     j = i+1
     while j < len(row) and (row[j] is None):
       j += 1
-    availableWidth = sum(widths[i:j]) + 3*(j-i-1)
+    availableWidth = sum(widths[i:j]) + delimWidth*(j-i-1)
     s = str(row[i])
     w = " " * (availableWidth - len(row[i]))
     aa = align(i)
@@ -186,7 +286,7 @@ def makeline(row, widths, align):
       raise ValueError("invalid formatter: {}".format(aa))
     bits.append(ln)
     i = j
-  return "   ".join(bits)
+  return (" " * delimWidth).join(bits)
 
 def table(rows, align=None):
   numCols = max(len(row) for row in rows if not isinstance(row, str))
@@ -210,7 +310,7 @@ def table(rows, align=None):
         widths[k] = max(widths[k], w)
       i = j
 
-  totalWidth = sum(widths) + 3*(numCols-1)
+  totalWidth = sum(widths) + delimWidth*(numCols-1)
 
   def aa(i):
     try:
@@ -315,6 +415,95 @@ for tag in orderedTags:
 print("SPACE (MAX RESIDENCY)")
 print(table(tt, defaultAlign))
 print("")
+
+h1 = ["", 'MPL(1) Local GC', None, None, None, 'MPL({}) Local GC'.format(maxp), None, None, None]
+h2 = ['Benchmark'] + (['Promo', 'Collect', 'Count', 'Reclaim'] * 2)
+tt = [h1, h2, "="]
+for tag in orderedTags:
+  thisRow = [tm(averagePromoTime(D, 'mpl', tag, 1)),
+             tm(averageLocalGCTime(D, 'mpl', tag, 1)),
+             averageNumLocalGCs(D, 'mpl', tag, 1),
+             sp(averageLocalReclaimed(D, 'mpl', tag, 1)),
+             tm(averagePromoTime(D, 'mpl', tag, maxp)),
+             tm(averageLocalGCTime(D, 'mpl', tag, maxp)),
+             averageNumLocalGCs(D, 'mpl', tag, maxp),
+             sp(averageLocalReclaimed(D, 'mpl', tag, maxp))
+            ]
+  thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
+  thisRow = [ (x if x is not None else "--") for x in thisRow ]
+  tt.append(thisRow)
+
+print("MPL COLLECTION STATISTICS")
+print("""\
++-------------------------------------------------------------------------+
+| "Reclaim" is the number of bytes reclaimed by local collections,        |
+| including the impact of defragmentation. This is a cumulative measure   |
+| throughout execution, where each collection adds:                       |
+|   (page_size) * (num_pages_after - num_pages_before)                    |
++-------------------------------------------------------------------------+""")
+print(table(tt, defaultAlign))
+print("")
+
+h1 = ["", 'MPL/CC(1) Local GC', None, None, None, 'MPL/CC({}) Local GC'.format(maxp), None, None, None]
+h2 = ['Benchmark'] + (['Promo', 'Collect', 'Count', 'Reclaim'] * 2)
+tt = [h1, h2, "="]
+for tag in orderedTags:
+  thisRow = [tm(averagePromoTime(D, 'mpl-cc', tag, 1)),
+             tm(averageLocalGCTime(D, 'mpl-cc', tag, 1)),
+             averageNumLocalGCs(D, 'mpl-cc', tag, 1),
+             sp(averageLocalReclaimed(D, 'mpl-cc', tag, 1)),
+             tm(averagePromoTime(D, 'mpl-cc', tag, maxp)),
+             tm(averageLocalGCTime(D, 'mpl-cc', tag, maxp)),
+             averageNumLocalGCs(D, 'mpl-cc', tag, maxp),
+             sp(averageLocalReclaimed(D, 'mpl-cc', tag, maxp))
+            ]
+  thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
+  thisRow = [ (x if x is not None else "--") for x in thisRow ]
+  tt.append(thisRow)
+
+print("MPL/CC LOCAL COLLECTION STATISTICS")
+print(table(tt, defaultAlign))
+print("")
+
+h1 = ["", 'MPL/CC(1) Concurrent GC', None, None, None, None, None, 'MPL/CC({}) Concurrent GC'.format(maxp), None, None, None, None, None]
+h2 = ["", "Root", None, None, "Internal", None, None, "Root", None, None, "Internal", None, None]
+h3 = ['Benchmark'] + (['T', '#', 'RC'] * 4)
+tt = [h1, h2, h3, "="]
+for tag in orderedTags:
+  thisRow = [ tm(averageTimeRootCC(D, 'mpl-cc', tag, 1)),
+              averageNumRootCCs(D, 'mpl-cc', tag, 1),
+              sp(averageRootReclaimed(D, 'mpl-cc', tag, 1)),
+              tm(averageTimeInternalCC(D, 'mpl-cc', tag, 1)),
+              averageNumInternalCCs(D, 'mpl-cc', tag, 1),
+              sp(averageInternalReclaimed(D, 'mpl-cc', tag, 1)),
+              tm(averageTimeRootCC(D, 'mpl-cc', tag, maxp)),
+              averageNumRootCCs(D, 'mpl-cc', tag, maxp),
+              sp(averageRootReclaimed(D, 'mpl-cc', tag, maxp)),
+              tm(averageTimeInternalCC(D, 'mpl-cc', tag, maxp)),
+              averageNumInternalCCs(D, 'mpl-cc', tag, maxp),
+              sp(averageInternalReclaimed(D, 'mpl-cc', tag, maxp))
+            ]
+  thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
+  thisRow = [ (x if x is not None else "--") for x in thisRow ]
+  tt.append(thisRow)
+
+print("MPL/CC CONCURRENT COLLECTION STATISTICS")
+print(table(tt, defaultAlign))
+print("")
+
+headers = ['Benchmark', 'WS', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
+tt = [headers, "="]
+for tag in orderedTags:
+  thisRow = [tag,
+             sp(averageSpace(WS, 'mlton-working-set', tag, 1)),
+             sp(averageSpace(D, 'mlton', tag, 1)),
+             sp(averageSpace(D, 'mpl', tag, 1)),
+             sp(averageSpace(D, 'mpl-cc', tag, 1)),
+             sp(averageSpace(D, 'mpl', tag, maxp)),
+             sp(averageSpace(D, 'mpl-cc', tag, maxp))
+            ]
+  thisRow = [ (x if x is not None else "--") for x in thisRow ]
+  tt.append(thisRow)
 
 # percent difference (b-a)/|a|
 def pcd(b, a):

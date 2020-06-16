@@ -36,3 +36,5 @@ val msg =
 val result = Benchmark.run msg (fn _ => countSol n)
 
 val _ = print ("result " ^ Int.toString result ^ "\n")
+
+val _ = GCStats.report ()

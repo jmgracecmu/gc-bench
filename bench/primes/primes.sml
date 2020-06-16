@@ -43,3 +43,5 @@ val result = Benchmark.run msg (fn _ => primes n)
 val numPrimes = Array.length result
 val _ = print ("number of primes " ^ Int.toString numPrimes ^ "\n")
 val _ = print ("result " ^ Util.summarizeArray 8 Int.toString result ^ "\n")
+
+val _ = GCStats.report ()

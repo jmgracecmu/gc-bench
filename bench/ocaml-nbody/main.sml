@@ -125,3 +125,5 @@ val _ = Benchmark.run "running simulation" (fn _ =>
   Util.for (0, n) (fn _ => aux_1 bodies 0.01))
 
 val _ = print ("final energy: " ^ Real.toString (energy bodies) ^ "\n")
+
+val _ = GCStats.report ()

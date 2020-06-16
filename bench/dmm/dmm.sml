@@ -26,3 +26,5 @@ val _ =
     if correct then print "yes" else print "no";
     print "\n"
   end
+
+val _ = GCStats.report ()

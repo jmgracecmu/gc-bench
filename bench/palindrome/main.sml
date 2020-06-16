@@ -23,3 +23,5 @@ val _ =
     print ("correct? yes\n")
   else
     print ("correct? no\n")
+
+val _ = GCStats.report ()

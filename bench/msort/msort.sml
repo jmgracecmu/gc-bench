@@ -13,3 +13,5 @@ val result =
   Benchmark.run "running mergesort" (fn _ => Mergesort.sort Int.compare input)
 
 val _ = print ("result " ^ Util.summarizeArraySlice 8 Int.toString result ^ "\n")
+
+val _ = GCStats.report ()

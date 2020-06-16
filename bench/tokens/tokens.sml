@@ -40,3 +40,7 @@ val _ =
     in
       vprint ("output in " ^ Time.fmt 4 tm ^ "s\n")
     end
+
+val _ =
+  if beVerbose then GCStats.report ()
+  else ()

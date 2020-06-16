@@ -54,3 +54,5 @@ val _ =
       dump 0;
       TextIO.closeOut file
     end
+
+val _ = GCStats.report ()
