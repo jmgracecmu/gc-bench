@@ -1,0 +1,35 @@
+#!/usr/bin/python
+
+import sys
+import subprocess
+import os
+import json
+
+gcChoices = [
+  ["-XX:+UseParallelGC"],
+  ["-XX:+UseParallelGC", "-XX:+UseCondCardMark"],
+  ["-XX:+UseG1GC"],
+  []
+]
+
+def setGC(gcConfig):
+  return gcChoices[gcConfig]
+
+def setProcs(numProcs):
+  return ["-Djava.util.concurrent.ForkJoinPool.common.parallelism={}".format(numProcs)]
+
+def makeCmd(gcConfig, numProcs):
+  progArgs = ["Sort", "100000000", "10", "5"]
+  runtimeArgs = setGC(gcConfig) + setProcs(numProcs)
+  cmd = " ".join(["/usr/bin/time -v /usr/bin/java"] + runtimeArgs + progArgs)
+  return {'config': 'java',
+          'tag': 'mergesort',
+          'cmd': cmd,
+          'procs': numProcs,
+          'cwd': 'java/'}
+
+procs = [1,18,36,54,72]
+gcConfigNum = 0
+
+for p in procs:
+  print(json.dumps(makeCmd(gcConfigNum, p)))

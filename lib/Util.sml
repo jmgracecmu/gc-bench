@@ -144,7 +144,7 @@ struct
       open Word64
       infix 2 >> << xorb andb
       val v = u * 0w3935559000370003845 + 0w2691343689449507681
-      val v = v xorb (v << 0w21)
+      val v = v xorb (v >> 0w21)
       val v = v xorb (v << 0w37)
       val v = v xorb (v >> 0w4)
       val v = v * 0w4768777513237032717

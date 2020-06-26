@@ -1,0 +1,36 @@
+#!/usr/bin/python
+
+import sys
+import subprocess
+import os
+
+gcChoices = [
+  ["-XX:+UseParallelGC"],
+  ["-XX:+UseParallelGC", "-XX:+UseCondCardMark"],
+  ["-XX:+UseG1GC"],
+  []
+]
+
+def setGC(gcConfig):
+  return gcChoices[gcConfig]
+
+def setProcs(numProcs):
+  return ["-Djava.util.concurrent.ForkJoinPool.common.parallelism={}".format(numProcs)]
+
+def makeCmd(gcConfig, numProcs):
+  progArgs = ["Sort", "100000000", "10", "5"]
+  runtimeArgs = setGC(gcConfig) + setProcs(numProcs)
+  return ["/usr/bin/java"] + runtimeArgs + progArgs
+
+numProcs = int(sys.argv[1])
+gcConfigNum = 0
+if len(sys.argv) > 2:
+  gcConfigNum = int(sys.argv[2])
+cmd = makeCmd(gcConfigNum, numProcs)
+
+print(" ".join(cmd))
+
+subprocess.call(" ".join(cmd), shell=True)
+
+# output = subprocess.check_output(cmd)
+# print(output)

@@ -1,0 +1,17 @@
+#!/usr/bin/python
+
+import sys
+import json
+
+def makeCmd(numProcs):
+  numa = ("" if numProcs == 1 else "numactl -i all -- ")
+  return {'cmd': '/usr/bin/time -v {}./matthew 100000000 {} 10 5'.format(numa, numProcs),
+          'tag': 'samplesort',
+          'config': 'go',
+          'procs': numProcs,
+          'cwd': 'go/matthew'}
+
+procs = [1,18,36,54,72]
+
+for p in procs:
+  print(json.dumps(makeCmd(p)))

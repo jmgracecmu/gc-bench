@@ -114,12 +114,26 @@ struct
      val sample_stride = n div sample_size
      val m = num_blocks*num_buckets
 
+     (* val _ = print ("num_blocks  " ^ Int.toString num_blocks ^ "\n")
+     val _ = print ("num_buckets " ^ Int.toString num_buckets ^ "\n")
+     val _ = print ("sample_size " ^ Int.toString sample_size ^ "\n")
+     val _ = print ("over_sample " ^ Int.toString over_sample ^ "\n")
+     val _ = print ("m " ^ Int.toString m ^ "\n") *)
+
+     (* val t0 = Time.now () *)
+
      (* sort a sample of keys *)
      val sample = Seq.tabulate (fn i => AS.sub (A, i*sample_stride)) sample_size
      val _ = sortInPlace cmp sample
 
+     (* val t1 = Time.now ()
+     val _ = print ("sorted sample  " ^ Time.fmt 4 (Time.- (t1, t0)) ^ "\n") *)
+
      (* take a subsample *)
      val sub_sample = Seq.tabulate (fn i => AS.sub (sample, (i+1)*over_sample)) (num_buckets-1)
+
+     (* val t2 = Time.now ()
+     val _ = print ("subsample      " ^ Time.fmt 4 (Time.- (t2, t1)) ^ "\n") *)
 
      val counts = AS.full (ForkJoin.alloc m)
      val B = AS.full (ForkJoin.alloc n)
@@ -139,6 +153,9 @@ struct
          val _ = mergeWithSamples cmp (B', sub_sample, counts')
        in () end)
 
+     (* val t3 = Time.now ()
+     val _ = print ("sort blocks    " ^ Time.fmt 4 (Time.- (t3, t2)) ^ "\n") *)
+
      (*  scan across the counts to get offset of each source bucket within each block *)
      val (source_offsets,_) = Seq.scan op+ 0 counts
 
@@ -151,18 +168,27 @@ struct
      val C = transposeBlocks(B, source_offsets, dest_offsets,
                              counts, num_blocks, num_buckets, n)
 
+     (* val t4 = Time.now ()
+     val _ = print ("transpose data " ^ Time.fmt 4 (Time.- (t4, t3)) ^ "\n") *)
+
      (* get the start location of each bucket *)
-     val bucket_offsets = Seq.tabulate (fn i => if (i = num_buckets) then n
-                                                else AS.sub (dest_offsets, i * num_blocks))
-                                       (num_buckets+1)
+    fun bucket_offset i =
+      if (i = num_buckets) then n
+      else AS.sub (dest_offsets, i * num_blocks)
+
      (* sort the buckets *)
      val _ =
      parallelFor 1 (0, num_buckets) (fn i =>
        let
-         val start = AS.sub (bucket_offsets, i)
-         val len = (AS.sub (bucket_offsets, i+1)) - start
+         val start = bucket_offset i
+         val len = bucket_offset (i+1) - start
+         (* val start = AS.sub (bucket_offsets, i)
+         val len = (AS.sub (bucket_offsets, i+1)) - start *)
          val _ = sortInPlace cmp (Seq.subseq C (start,len))
        in () end)
+
+     (* val t5 = Time.now ()
+     val _ = print ("sort buckets   " ^ Time.fmt 4 (Time.- (t5, t4)) ^ "\n") *)
 
    in C end
 end
