@@ -1,0 +1,241 @@
+#!/usr/bin/python
+
+import json
+import sys
+import re
+import copy
+import os
+
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+def displayTag(t):
+  return t
+
+def json_careful_loads(s):
+  try:
+    return json.loads(s)
+  except Exception as e:
+    sys.stderr.write("[ERR] Error while parsing json: {}\n".format(e))
+    sys.exit(1)
+
+def json_careful_readlines(f):
+  return [ json_careful_loads(line.rstrip('\n')) for line in f ]
+
+def safeInsert(dict, key, value):
+  if key not in dict:
+    dict[key] = value
+  else:
+    sys.stderr.write("[WARN] Key {} is already in use; trying _{} instead.\n".format(key))
+    safeInsert(dict, "_" + key, value)
+
+def reCompile(exp):
+  return re.compile(exp, re.MULTILINE)
+
+def parseKiB(kibStr):
+  return int(kibStr) * 1024.0 / 1000.0
+
+def parseB(bytesStr):
+  return int(bytesStr) / 1000.0
+
+def getWallTimes(row):
+  lines = row['stdout'].split("\n")
+  tms = []
+  for line in lines:
+    m = re.search(r"^wall\s+(\d+)$", line)
+    if m:
+      seconds = float(m.group(1)) / 1000.0
+      tms.append(seconds)
+  return tms
+
+statsPatterns = \
+  [ ("space", parseKiB, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
+  ]
+
+foundTags = set()
+foundProcs = set()
+
+def parseStats(row):
+  newRow = copy.deepcopy(row)
+  for (name, convert, pat) in statsPatterns:
+    m = pat.search(newRow['stdout'] + newRow['stderr'])
+    if m:
+      safeInsert(newRow, name, convert(m.group(1)))
+  newRow['procs'] = int(newRow.get('procs', '1'))
+  # newRow['config'] = row['config']
+
+  try:
+    newRow['space'] = float(newRow['space'])
+  except KeyError:
+    pass
+
+  try:
+    newRow['time'] = float(newRow['elapsed'])
+  except KeyError:
+    pass
+
+  foundTags.add(newRow['tag'])
+  foundProcs.add(newRow['procs'])
+
+  return newRow
+
+def getTimes(data, config, tag, procs):
+  for row in data:
+    if (row['config'] == config and \
+        row['tag'] == tag and \
+        row['procs'] == procs):
+      return getWallTimes(row)
+  return None
+
+def getSpace(data, config, tag, procs):
+  for row in data:
+    if (row['config'] == config and \
+        row['tag'] == tag and \
+        row['procs'] == procs):
+      return row['space']
+  return None
+
+# ===========================================================================
+
+def mostRecentResultsFile():
+  files = os.listdir("results")
+  pattern = r'sort-\d{6}-\d{6}'
+  # A bit of a hack. Filenames are ...YYMMDD-hhmmss, so lexicographic string
+  # comparison is correct for finding the most recent (i.e. maximum) file
+  mostRecent = max(p for p in files if re.match(pattern, p))
+  return mostRecent
+
+if len(sys.argv) > 1:
+  resultsFile = sys.argv[1]
+else:
+  print("[INFO] no results file argument; finding most recent")
+  try:
+    mostRecent = mostRecentResultsFile()
+  except:
+    print("[ERR] could not find most recent results file\n " + \
+          "  check that these are formatted as 'YYMMSS-hhmmss'")
+    sys.exit(1)
+  resultsFile = os.path.join('results', mostRecent)
+
+print("[INFO] reading {}\n".format(resultsFile))
+with open(resultsFile, 'r') as data:
+  resultsData = json_careful_readlines(data)
+D = [ parseStats(row) for row in resultsData ]
+
+# ===========================================================================
+
+# remove first 5 runs, call it warmup
+warmupRuns = 5
+def averageAfterWarmup(config, procs):
+  tms = getTimes(D, config, 'sort-shootout', procs)
+  try:
+    tms = tms[warmupRuns:]
+    return sum(tms) / len(tms)
+  except:
+    return None
+
+def maxRes(config, procs):
+  sp = getSpace(D, config, 'sort-shootout', procs)
+  try:
+    return sp / 1000.0 / 1000.0    # GB
+  except:
+    return None
+
+print("==== TIMES ====")
+
+print("MLTON  1    " + str(averageAfterWarmup('mlton', 1)))
+
+print("MPL    1    " + str(averageAfterWarmup('mpl', 1)))
+print("MPL    72   " + str(averageAfterWarmup('mpl', 72)))
+
+print("MPL/CC 1    " + str(averageAfterWarmup('mpl-cc', 1)))
+print("MPL/CC 72   " + str(averageAfterWarmup('mpl-cc', 72)))
+
+print("JAVA   1    " + str(averageAfterWarmup('java', 1)))
+print("JAVA   72   " + str(averageAfterWarmup('java', 72)))
+
+print("GO     1    " + str(averageAfterWarmup('go', 1)))
+print("GO     72   " + str(averageAfterWarmup('go', 72)))
+
+print("")
+
+print("==== SPACE ====")
+
+print("MLTON  1    " + str(maxRes('mlton', 1)))
+
+print("MPL    1    " + str(maxRes('mpl', 1)))
+print("MPL    72   " + str(maxRes('mpl', 72)))
+
+print("MPL/CC 1    " + str(maxRes('mpl-cc', 1)))
+print("MPL/CC 72   " + str(maxRes('mpl-cc', 72)))
+
+print("JAVA   1    " + str(maxRes('java', 1)))
+print("JAVA   72   " + str(maxRes('java', 72)))
+
+print("GO     1    " + str(maxRes('go', 1)))
+print("GO     72   " + str(maxRes('go', 72)))
+
+print("")
+
+# ==========================================================================
+
+configs = ['mpl', 'mpl-cc', 'java', 'go']
+markers = ['o','v','^','<','>','s','P','*','X','d','D','+','x','']
+procs = [1,18,36,54,72]
+
+fontSize = 18
+legendFontSize = 14
+markerSize = 8
+
+baseline = averageAfterWarmup('mlton', 1)
+
+lines = []
+for (config, marker) in zip(configs, markers):
+  speedups = map(lambda p: baseline / averageAfterWarmup(config, p), procs)
+  lines.append(plt.plot(procs, speedups, marker=marker, markersize=markerSize, linewidth=1))
+
+# this sets the legend.
+font = {
+  'size': legendFontSize,
+  #'family' : 'normal',
+  #'weight' : 'bold',
+}
+matplotlib.rc('font', **font)
+
+# make sure to use truetype fonts
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+# set legend position
+matplotlib.rcParams['legend.loc'] = 'upper left'
+
+plt.xlabel('Processors', fontsize=fontSize)
+plt.ylabel('Speedup', fontsize=fontSize)
+plt.yticks(procs, fontsize=fontSize)
+plt.xticks(procs, fontsize=fontSize)
+plt.gca().grid(axis='both', linestyle='--')
+plt.gca().set_axisbelow(True)
+# plt.margins(y=10)
+plt.legend([b[0] for b in lines], configs)
+
+outputName = 'figures/shootout-speedups.pdf'
+plt.savefig(outputName, bbox_inches='tight')
+sys.stdout.write("[INFO] output written to {}\n".format(outputName))
+
+# ==========================================================================
+
+tableFile = 'figures/shootout-table.tex'
+
+def makeTableRow(config):
+  c = config
+  row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 72), maxRes(c, 1), maxRes(c, 72)]
+  row = map(lambda x: "{:.1f}".format(x) if x is not None else "--", row)
+  return " & ".join([c] + row)
+
+with open(tableFile, 'w') as f:
+  for c in ['mlton','mpl','mpl-cc','java','go']:
+    f.write(makeTableRow(c) + " \\\\\n")
+
+sys.stdout.write("[INFO] table rows written to {}\n".format(tableFile))
