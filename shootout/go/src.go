@@ -106,7 +106,7 @@ func main() {
     elapsed_sort := time.Since(time_sort).Seconds()
 
     // Do some simple book-keeping
-    fmt.Printf("\n==== run %d ====\nwall %d\n", r, int(elapsed_sort * 1000.0))
+    fmt.Printf("\n==== run %d ====\n", r);
     runtimes[r] = elapsed_sort
 
     fmt.Printf("result [");
@@ -114,6 +114,8 @@ func main() {
       fmt.Printf("%d, ", output[i]);
     }
     fmt.Printf("..., %d]\n", output[n-1]);
+
+		fmt.Printf("wall %d\n", int(elapsed_sort * 1000.0));
 
     // Verify that the output produced was correct
     // verify(output)

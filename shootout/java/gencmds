@@ -19,14 +19,14 @@ def setProcs(numProcs):
   return ["-Djava.util.concurrent.ForkJoinPool.common.parallelism={}".format(numProcs)]
 
 def makeCmd(gcConfig, numProcs):
-  progArgs = ["Sort", "100000000", "10", "5"]
+  progArgs = ["Sort", "100000000", "10", "0"]
   runtimeArgs = setGC(gcConfig) + setProcs(numProcs)
   cmd = " ".join(["/usr/bin/time -v /usr/bin/java"] + runtimeArgs + progArgs)
   return {'config': 'java',
-          'tag': 'mergesort',
+          'tag': 'sort-shootout',
           'cmd': cmd,
           'procs': numProcs,
-          'cwd': 'java/'}
+          'cwd': 'shootout/java'}
 
 procs = [1,18,36,54,72]
 gcConfigNum = 0

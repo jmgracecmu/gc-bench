@@ -1,0 +1,15 @@
+#!/bin/bash
+
+(cd shootout/go && make)
+(cd shootout/java && make)
+(cd shootout/mpl && make)
+
+NOW=$(date '+%y%m%d-%H%M%S')
+
+# all of the extra arguments get sent to scripts/runcmds.py with $@ below
+{ \
+  shootout/java/gencmds; \
+  shootout/go/gencmds; \
+  shootout/mpl/gencmds; \
+} \
+| scripts/runcmds.py --output results/sort-$NOW $@

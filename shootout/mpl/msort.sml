@@ -29,8 +29,8 @@ fun loopRepeat tms k =
     val ms = LargeInt.toInt (Time.toMilliseconds tm)
   in
     print ("==== run " ^ Int.toString k ^ " ====\n");
-    print ("wall " ^ Int.toString ms ^ "\n");
     print ("result " ^ Util.summarizeArraySlice 8 Int32.toString result ^ "\n");
+    print ("wall " ^ Int.toString ms ^ "\n");
     loopRepeat (ms :: tms) (k+1)
   end
 
