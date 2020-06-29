@@ -59,6 +59,7 @@ if __name__ == "__main__":
   parser.add_argument('-s', '--silent', action='store_true', dest='silent')
   parser.add_argument('-o', '--output', type=argparse.FileType('a'), default=sys.stdout, dest='output')
   parser.add_argument('-b', '--bare', action = 'store_true', dest = 'bare')
+  parser.add_argument('-c', '--compile', action = 'store_true', dest = 'compile')
   args = parser.parse_args()
 
   if args.bare:
@@ -66,21 +67,22 @@ if __name__ == "__main__":
   else:
     rows = [ json.loads(x) for x in sys.stdin ]
 
-  # binsToMake = []
-  # for r in rows:
-  #   binFile = '{}.{}.bin'.format(r['bench'], r['config'])
-  #   if not os.path.isfile('bin/' + binFile) and (binFile not in binsToMake):
-  #     binsToMake.append(binFile)
+  if args.compile:
+    binsToMake = []
+    for r in rows:
+      binFile = '{}.{}.bin'.format(r['bench'], r['config'])
+      if not os.path.isfile('bin/' + binFile) and (binFile not in binsToMake):
+        binsToMake.append(binFile)
 
-  # if len(binsToMake) > 0:
-  #   sys.stderr.write("[WARN] missing binaries:\n")
-  #   for b in binsToMake:
-  #     sys.stderr.write("  " + b + "\n")
+    if len(binsToMake) > 0:
+      sys.stderr.write("[WARN] missing binaries:\n")
+      for b in binsToMake:
+        sys.stderr.write("  " + b + "\n")
 
-  #   cmd = "make -j " + (" ".join(binsToMake))
-  #   sys.stderr.write("[INFO] " + cmd + "\n")
-  #   out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-  #   sys.stderr.write(out + "\n")
+      cmd = "make -j " + (" ".join(binsToMake))
+      sys.stderr.write("[INFO] " + cmd + "\n")
+      out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+      sys.stderr.write(out + "\n")
 
   for result in runcmds(rows, repeat=args.repeat, timeout=args.timeout, silent=args.silent):
     s = '{}\n'.format(json.dumps(result))

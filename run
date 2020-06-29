@@ -6,5 +6,5 @@ NOW=$(date '+%y%m%d-%H%M%S')
 # all of the extra arguments get sent to scripts/runcmds.py with $@ below
 scripts/gencmds.py exp.json \
 | grep -v "\"config\": \"mlton-working-set\"" \
-| scripts/runcmds.py --output results/$NOW $@
+| scripts/runcmds.py --compile --output results/$NOW $@
 echo "[INFO] wrote timings results to 'results/$NOW'"
