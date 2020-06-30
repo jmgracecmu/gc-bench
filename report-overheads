@@ -33,9 +33,7 @@ def reCompile(exp):
 #   return int(s.replace(",", ""))
 
 statsPatterns = \
-  [ ("time", int, reCompile(r"^wall\s+(\d+)$"))
-  , ("space", int, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
-  # , ("working-set", parseCommaInteger, reCompile(r"^max bytes live: (.*) bytes$"))
+  [ ("time", float, reCompile(r"^average\s+(\d+.\d+)s$"))
   ]
 
 renameConfig = {
@@ -62,10 +60,10 @@ def parseStats(row):
   except KeyError:
     pass
 
-  try:
-    newRow['time'] = float(newRow['elapsed'])
-  except KeyError:
-    pass
+  # try:
+  #   newRow['time'] = float(newRow['elapsed'])
+  # except KeyError:
+  #   pass
 
   foundTags.add(newRow['tag'])
   foundProcs.add(newRow['procs'])
@@ -139,7 +137,7 @@ def sp(kb):
 # =========================================================================
 
 def mostRecentResultsFile(ws=False):
-  files = os.listdir("../results")
+  files = os.listdir("results")
   pattern = r'\d{6}-\d{6}'
   if ws:
     pattern = r'ws-' + pattern
@@ -158,7 +156,7 @@ else:
     print("[ERR] could not find most recent results file\n " + \
           "  check that these are formatted as 'YYMMSS-hhmmss'")
     sys.exit(1)
-  timingsFile = os.path.join('../results', mostRecent)
+  timingsFile = os.path.join('results', mostRecent)
 
 if len(sys.argv) > 2:
   workingSetFile = sys.argv[2]
@@ -170,15 +168,15 @@ else:
     print("[ERR] could not find most recent results/ws-* file\n " + \
           "  check that these are formatted as 'ws-YYMMSS-hhmmss'")
     sys.exit(1)
-  workingSetFile = os.path.join('../results', mostRecent)
+  workingSetFile = os.path.join('results', mostRecent)
 
 print("[INFO] reading {}".format(timingsFile))
 with open(timingsFile, 'r') as data:
   resultsData = json_careful_readlines(data)
-print("[INFO] reading {}".format(workingSetFile))
-with open(workingSetFile, 'r') as data:
-  workingSetData = json_careful_readlines(data)
-WS = [ parseStats(row) for row in workingSetData ]
+# print("[INFO] reading {}".format(workingSetFile))
+# with open(workingSetFile, 'r') as data:
+#   workingSetData = json_careful_readlines(data)
+# WS = [ parseStats(row) for row in workingSetData ]
 D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
 maxp = max(foundProcs)
@@ -215,7 +213,7 @@ def left(ab):
 def right(ab):
   return [ ab[2*i+1] for i in xrange(0, len(ab)/2) ]
 
-foundTags = list(foundTags)
+foundTags = sorted(list(foundTags))
 displayTags = [ "{}({})".format(t, tm(averageTime(D, 'mlton', t, 1))) for t in foundTags ]
 N = len(foundTags)
 yA = [ mplCCOverhead(tag) for tag in foundTags ]
@@ -251,8 +249,8 @@ ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.yaxis.set_ticks_position('left')
 ax.xaxis.set_ticks_position('bottom')
-plt.bar(left(x), left(heights), align='center', bottom=1, color='gold', width=barWidth, label='LC+CC')
-plt.bar(right(x), right(heights), align='center', bottom=1, color='black', width=barWidth, label='LC only')
+plt.bar(left(x), left(heights), align='center', bottom=1, color='gold', width=barWidth, label='MPL/CC')
+plt.bar(right(x), right(heights), align='center', bottom=1, color='black', width=barWidth, label='MPL')
 ax.legend(loc='upper left')
 
 offset = transforms.ScaledTranslation(10/72., 0, fig.dpi_scale_trans)
@@ -290,6 +288,6 @@ for i in xrange(0, 2*N, 2):
 #     plt.annotate(str(tm(y[i])), (x[i], y[i]+0.01), ha='center', fontsize=8)
 
 fig.tight_layout()
-plt.savefig('overheads.pdf')
+plt.savefig('figures/overheads.pdf')
 
-print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
+print("[INFO] done reporting {}".format(timingsFile))
