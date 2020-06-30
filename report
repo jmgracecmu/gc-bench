@@ -634,12 +634,14 @@ with open(pcdResultsFile, 'w') as output:
       tpcd = latexpcd(mplcc, mpl)
       rpcd = latexpcd(rmplcc, rmpl)
 
-      tpcd = (tpcd + "T") if tpcd is not None else "--"
-      rpcd = (rpcd + "R") if rpcd is not None else "--"
+      tpcd = tpcd if tpcd is not None else "--"
+      rpcd = rpcd if rpcd is not None else "--"
 
-      row.append("{} {}".format(tpcd,rpcd))
+      row.append("")
+      row.append(tpcd)
+      row.append(rpcd)
 
-    output.write(" & ".join([tag] + row))
+    output.write(tag + " & ".join(row))
     output.write("  \\\\\n")
 print("[INFO] wrote to {}".format(pcdResultsFile))
 
