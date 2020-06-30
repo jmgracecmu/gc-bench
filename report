@@ -603,6 +603,48 @@ print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
 
 # ============================================================================
 
+# def highlight(s):
+# return "\\underline{\\bf" + s + "}"
+
+def highlight(s):
+  return "{\\bf" + s + "}"
+
+def latexpcd(b, a):
+  try:
+    xx = int(round(100.0 * (b-a) / abs(a)))
+    result = ("+" if xx >= 0.0 else "") + ("{}\\%".format(xx))
+    if xx < 0:
+      return highlight(result) #TODO: highlight
+    else:
+      return result
+  except:
+    return None
+
+pcdResultsFile = "figures/pcd-table.tex"
+with open(pcdResultsFile, 'w') as output:
+  allP = [1,18,36,54,72]
+  for tag in orderedTags:
+    row = []
+    for p in allP:
+      mpl = tm(averageTime(D, 'mpl', tag, p))
+      mplcc = tm(averageTime(D, 'mpl-cc', tag, p))
+      rmpl = averageSpace(D, 'mpl', tag, p)
+      rmplcc = averageSpace(D, 'mpl-cc', tag, p)
+
+      tpcd = latexpcd(mplcc, mpl)
+      rpcd = latexpcd(rmplcc, rmpl)
+
+      tpcd = (tpcd + "T") if tpcd is not None else "--"
+      rpcd = (rpcd + "R") if rpcd is not None else "--"
+
+      row.append("{} {}".format(tpcd,rpcd))
+
+    output.write(" & ".join([tag] + row))
+    output.write("  \\\\\n")
+print("[INFO] wrote to {}".format(pcdResultsFile))
+
+# ============================================================================
+
 timeTableResults = "figures/all-time-table.tex"
 with open(timeTableResults, 'w') as output:
   for tag in orderedTags:
