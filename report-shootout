@@ -143,47 +143,47 @@ def maxRes(config, procs):
   except:
     return None
 
-print("==== TIMES ====")
+# print("==== TIMES ====")
 
-print("MLTON  1    " + str(averageAfterWarmup('mlton', 1)))
+# print("MLTON  1    " + str(averageAfterWarmup('mlton', 1)))
 
-print("MPL    1    " + str(averageAfterWarmup('mpl', 1)))
-print("MPL    72   " + str(averageAfterWarmup('mpl', 72)))
+# print("MPL    1    " + str(averageAfterWarmup('mpl', 1)))
+# print("MPL    72   " + str(averageAfterWarmup('mpl', 72)))
 
-print("MPL/CC 1    " + str(averageAfterWarmup('mpl-cc', 1)))
-print("MPL/CC 72   " + str(averageAfterWarmup('mpl-cc', 72)))
+# print("MPL/CC 1    " + str(averageAfterWarmup('mpl-cc', 1)))
+# print("MPL/CC 72   " + str(averageAfterWarmup('mpl-cc', 72)))
 
-print("JAVA   1    " + str(averageAfterWarmup('java', 1)))
-print("JAVA   72   " + str(averageAfterWarmup('java', 72)))
+# print("JAVA   1    " + str(averageAfterWarmup('java', 1)))
+# print("JAVA   72   " + str(averageAfterWarmup('java', 72)))
 
-print("GO     1    " + str(averageAfterWarmup('go', 1)))
-print("GO     72   " + str(averageAfterWarmup('go', 72)))
+# print("GO     1    " + str(averageAfterWarmup('go', 1)))
+# print("GO     72   " + str(averageAfterWarmup('go', 72)))
 
-print("")
+# print("")
 
-print("==== SPACE ====")
+# print("==== SPACE ====")
 
-print("MLTON  1    " + str(maxRes('mlton', 1)))
+# print("MLTON  1    " + str(maxRes('mlton', 1)))
 
-print("MPL    1    " + str(maxRes('mpl', 1)))
-print("MPL    72   " + str(maxRes('mpl', 72)))
+# print("MPL    1    " + str(maxRes('mpl', 1)))
+# print("MPL    72   " + str(maxRes('mpl', 72)))
 
-print("MPL/CC 1    " + str(maxRes('mpl-cc', 1)))
-print("MPL/CC 72   " + str(maxRes('mpl-cc', 72)))
+# print("MPL/CC 1    " + str(maxRes('mpl-cc', 1)))
+# print("MPL/CC 72   " + str(maxRes('mpl-cc', 72)))
 
-print("JAVA   1    " + str(maxRes('java', 1)))
-print("JAVA   72   " + str(maxRes('java', 72)))
+# print("JAVA   1    " + str(maxRes('java', 1)))
+# print("JAVA   72   " + str(maxRes('java', 72)))
 
-print("GO     1    " + str(maxRes('go', 1)))
-print("GO     72   " + str(maxRes('go', 72)))
+# print("GO     1    " + str(maxRes('go', 1)))
+# print("GO     72   " + str(maxRes('go', 72)))
 
-print("")
+# print("")
 
 # ==========================================================================
 
 configs = ['mpl', 'mpl-cc', 'java', 'go']
 markers = ['o','v','^','<','>','s','P','*','X','d','D','+','x','']
-procs = [1,18,36,54,72]
+procs = [1,10,20,30,40,50,60,70]
 
 fontSize = 18
 legendFontSize = 14
@@ -230,7 +230,7 @@ tableFile = 'figures/shootout-table.tex'
 
 def makeTableRow(config):
   c = config
-  row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 72), maxRes(c, 1), maxRes(c, 72)]
+  row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 70), maxRes(c, 1), maxRes(c, 70)]
   row = map(lambda x: "{:.2f}".format(x) if x is not None else "--", row)
   return " & ".join([c] + row)
 

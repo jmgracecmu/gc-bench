@@ -220,6 +220,7 @@ def right(ab):
   return [ ab[2*i+1] for i in xrange(0, len(ab)/2) ]
 
 foundTags = sorted(list(foundTags))
+foundTags = [ t for t in foundTags if "ocaml-" not in t ]
 displayTags = [ "{}({})".format(t, tm(averageTime(D, 'mlton', t, 1))) for t in foundTags ]
 N = len(foundTags)
 yA = [ mplCCOverhead(tag) for tag in foundTags ]

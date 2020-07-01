@@ -377,6 +377,7 @@ P = sorted(list(foundProcs))
 maxp = max(foundProcs)
 
 orderedTags = sorted(list(foundTags))
+orderedTags = [ t for t in orderedTags if "ocaml-" not in t ]
 
 def defaultAlign(i):
   return "r" if i == 0 else "l"
@@ -622,7 +623,7 @@ def latexpcd(b, a):
 
 pcdResultsFile = "figures/pcd-table.tex"
 with open(pcdResultsFile, 'w') as output:
-  allP = [1,18,36,54,72]
+  allP = [1,10,20,30,40,50,60,70]
   for tag in orderedTags:
     row = []
     for p in allP:
@@ -718,7 +719,7 @@ plt.figure(0)
 markers = ['o','v','^','<','>','s','*','d','D','+','x','|','','','','','']
 
 # markers = ['.'] * len(speedupTags)
-procs = [1,18,36,54,72]
+procs = [1,10,20,30,40,50,60,70]
 
 fontSize = 10
 legendFontSize = 10
