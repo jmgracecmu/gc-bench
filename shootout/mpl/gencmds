@@ -4,13 +4,13 @@ import sys
 import json
 
 def makeCmd(config, numProcs):
-  return {'cmd': '/usr/bin/time -v ./msort.{} @mpl procs {} -- -N 100000000 -repeat 10'.format(config, numProcs),
+  return {'cmd': '/usr/bin/time -v ./msort.{} @mpl procs {} -- -N 100000000 -repeat 15'.format(config, numProcs),
           'tag': 'sort-shootout',
           'config': config,
           'procs': numProcs,
           'cwd': 'shootout/mpl'}
 
-procs = [1,18,36,54,72]
+procs = [1,10,20,30,40,50,60,70]
 
 for p in procs:
   print(json.dumps(makeCmd("mpl", p)))

@@ -1,6 +1,6 @@
 [
   { "match": { "config": "mpl" }
-  , "template": "/usr/bin/time -v bin/<bench>.<config>.bin @mpl <procs?procs {} >-- <args?{} ><args1?{} ><args2?{}><tag?>"
+  , "template": "/usr/bin/time -v bin/<bench>.<config>.bin @mpl <procs?procs {}> set-affinity affinity-base 1 -- <args?{} ><args1?{} ><args2?{}><tag?>"
   }
 , { "match": { "config": "mlton" }
   , "template": "/usr/bin/time -v bin/<bench>.<config>.bin <args?{} ><args1?{} ><args2?{}><tag?>"

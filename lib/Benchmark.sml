@@ -20,14 +20,26 @@ struct
 
   fun run msg f =
     let
+      val warmup = CommandLineArgs.parseInt "warmup" 0
+      val _ =
+        if warmup >= 0 then ()
+        else Util.die "-warmup N must be at least 0"
       val rep = CommandLineArgs.parseInt "repeat" 1
       val _ =
         if rep >= 1 then ()
         else Util.die "-repeat N must be at least 1"
 
+      val _ = print ("warmup " ^ Int.toString warmup ^ "\n")
       val _ = print ("repeat " ^ Int.toString rep ^ "\n")
-      val _ = print (msg ^ "\n")
 
+      val _ =
+        if warmup <= 0 then ()
+        else ( print ("====== WARMUP ======\n" ^ msg ^ "\n")
+             ; ignore (getTimes warmup f)
+             ; print ("==== END WARMUP ====\n")
+             )
+
+      val _ = print (msg ^ "\n")
       val (result, tms) = getTimes rep f
 
       val total = List.foldl Time.+ Time.zeroTime tms
