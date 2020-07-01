@@ -231,7 +231,7 @@ tableFile = 'figures/shootout-table.tex'
 def makeTableRow(config):
   c = config
   row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 72), maxRes(c, 1), maxRes(c, 72)]
-  row = map(lambda x: "{:.1f}".format(x) if x is not None else "--", row)
+  row = map(lambda x: "{:.2f}".format(x) if x is not None else "--", row)
   return " & ".join([c] + row)
 
 with open(tableFile, 'w') as f:

@@ -65,7 +65,7 @@ def parseB(bytesStr):
   return int(bytesStr) / 1000.0
 
 statsPatterns = \
-  [ ("time", int, reCompile(r"^wall\s+(\d+)$"))
+  [ ("time", float, reCompile(r"^average\s+(\d+.\d+)s$"))
   , ("space", parseKiB, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
   , ("num-local", int, reCompile(r"^num local: (\d+)$"))
   , ("local-reclaimed", parseB, reCompile(r"^local reclaimed: (\d+)$"))
@@ -104,10 +104,10 @@ def parseStats(row):
   except KeyError:
     pass
 
-  try:
-    newRow['time'] = float(newRow['elapsed'])
-  except KeyError:
-    pass
+  # try:
+  #   newRow['time'] = float(newRow['elapsed'])
+  # except KeyError:
+  #   pass
 
   foundTags.add(newRow['tag'])
   foundProcs.add(newRow['procs'])
@@ -523,6 +523,14 @@ def sd(x, y):
   except:
     return None
 
+def noLeadZero(x):
+  try:
+    if "0" == x[:1]:
+      return x[1:]
+  except:
+    pass
+  return x
+
 header1 = ["", "Overhead", None, "Speedup({})".format(maxp), None, "Blowup(1)", None, "Blowup({})".format(maxp), None]
 header2 = ['Benchmark',
            'MPL',
@@ -592,3 +600,165 @@ print(table(tt, defaultAlign))
 print("")
 
 print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
+
+# ============================================================================
+
+# def highlight(s):
+# return "\\underline{\\bf" + s + "}"
+
+def highlight(s):
+  return "{\\bf" + s + "}"
+
+def latexpcd(b, a):
+  try:
+    xx = int(round(100.0 * (b-a) / abs(a)))
+    result = ("+" if xx >= 0.0 else "") + ("{}\\%".format(xx))
+    if xx < 0:
+      return highlight(result) #TODO: highlight
+    else:
+      return result
+  except:
+    return None
+
+pcdResultsFile = "figures/pcd-table.tex"
+with open(pcdResultsFile, 'w') as output:
+  allP = [1,18,36,54,72]
+  for tag in orderedTags:
+    row = []
+    for p in allP:
+      mpl = tm(averageTime(D, 'mpl', tag, p))
+      mplcc = tm(averageTime(D, 'mpl-cc', tag, p))
+      rmpl = averageSpace(D, 'mpl', tag, p)
+      rmplcc = averageSpace(D, 'mpl-cc', tag, p)
+
+      tpcd = latexpcd(mplcc, mpl)
+      rpcd = latexpcd(rmplcc, rmpl)
+
+      tpcd = tpcd if tpcd is not None else "--"
+      rpcd = rpcd if rpcd is not None else "--"
+
+      row.append("")
+      row.append(tpcd)
+      row.append(rpcd)
+
+    output.write(tag + " & ".join(row))
+    output.write("  \\\\\n")
+print("[INFO] wrote to {}".format(pcdResultsFile))
+
+# ============================================================================
+
+timeTableResults = "figures/all-time-table.tex"
+with open(timeTableResults, 'w') as output:
+  for tag in orderedTags:
+    mlton = tm(averageTime(D, 'mlton', tag, 1))
+    mpl1 = tm(averageTime(D, 'mpl', tag, 1))
+    mplp = tm(averageTime(D, 'mpl', tag, maxp))
+    mplcc1 = tm(averageTime(D, 'mpl-cc', tag, 1))
+    mplccp = tm(averageTime(D, 'mpl-cc', tag, maxp))
+
+    row = \
+      [ mlton
+      , mpl1
+      , tm(sd(mpl1, mlton))
+      , mplp
+      , tm(sd(mlton, mplp))
+      , mplcc1
+      , tm(sd(mplcc1, mlton))
+      , mplccp
+      , tm(sd(mlton, mplccp))
+      ]
+
+    row = [ noLeadZero(str(x)) if x is not None else "--" for x in row ]
+    output.write(" & ".join([tag] + row))
+    output.write("  \\\\\n")
+print("[INFO] wrote to {}".format(timeTableResults))
+
+# ============================================================================
+
+def spg(kb):
+  return sd(kb, 1000.0 * 1000.0)
+
+def display(gb):
+  if gb < .01:
+    return '{:.4f}'.format(gb)
+  elif gb < .1:
+    return '{:.3f}'.format(gb)
+  elif gb < 1:
+    return '{:.2f}'.format(gb)
+  else:
+    return '{:.1f}'.format(gb)
+
+spaceTableResults = "figures/all-space-table.tex"
+with open(spaceTableResults, 'w') as output:
+  for tag in orderedTags:
+    row = \
+      [ spg(averageSpace(WS, 'mlton-working-set', tag, 1))
+      , spg(averageSpace(D, 'mlton', tag, 1))
+      , spg(averageSpace(D, 'mpl', tag, 1))
+      , spg(averageSpace(D, 'mpl', tag, maxp))
+      , spg(averageSpace(D, 'mpl-cc', tag, 1))
+      , spg(averageSpace(D, 'mpl-cc', tag, maxp))
+      ]
+    row = [ noLeadZero(display(x)) if x is not None else "--" for x in row ]
+    output.write(" & ".join([tag] + row))
+    output.write("  \\\\\n")
+print("[INFO] wrote to {}".format(spaceTableResults))
+
+# ============================================================================
+
+speedupTags = [ t for t in orderedTags if "ocaml" not in t ]
+
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+plt.figure(0)
+
+markers = ['o','v','^','<','>','s','*','d','D','+','x','|','','','','','']
+
+# markers = ['.'] * len(speedupTags)
+procs = [1,18,36,54,72]
+
+fontSize = 10
+legendFontSize = 10
+markerSize = 5
+
+lines = []
+for (tag, marker) in zip(speedupTags, markers):
+  baseline = averageTime(D, 'mlton', tag, 1)
+  speedups = map(lambda p: baseline / averageTime(D, 'mpl-cc', tag, p), procs)
+  lines.append(plt.plot(procs, speedups, marker=marker, markersize=markerSize, linewidth=1))
+
+# this sets the legend.
+font = {
+  'size': legendFontSize,
+  #'family' : 'normal',
+  #'weight' : 'bold',
+}
+matplotlib.rc('font', **font)
+
+# make sure to use truetype fonts
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
+# set legend position
+matplotlib.rcParams['legend.loc'] = 'upper left'
+
+plt.xlabel('Processors', fontsize=fontSize)
+plt.ylabel('Speedup', fontsize=fontSize)
+plt.yticks(procs, fontsize=fontSize)
+plt.xticks(procs, fontsize=fontSize)
+plt.gca().grid(axis='both', linestyle='--')
+plt.gca().set_axisbelow(True)
+# plt.margins(y=10)
+plt.legend([b[0] for b in lines], speedupTags)
+
+outputName = 'figures/mpl-cc-speedups.pdf'
+plt.savefig(outputName, bbox_inches='tight')
+sys.stdout.write("[INFO] output written to {}\n".format(outputName))
+
+# ============================================================================
+
+plt.figure(1)
+

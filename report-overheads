@@ -33,9 +33,7 @@ def reCompile(exp):
 #   return int(s.replace(",", ""))
 
 statsPatterns = \
-  [ ("time", int, reCompile(r"^wall\s+(\d+)$"))
-  , ("space", int, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
-  # , ("working-set", parseCommaInteger, reCompile(r"^max bytes live: (.*) bytes$"))
+  [ ("time", float, reCompile(r"^average\s+(\d+.\d+)s$"))
   ]
 
 renameConfig = {
@@ -62,10 +60,10 @@ def parseStats(row):
   except KeyError:
     pass
 
-  try:
-    newRow['time'] = float(newRow['elapsed'])
-  except KeyError:
-    pass
+  # try:
+  #   newRow['time'] = float(newRow['elapsed'])
+  # except KeyError:
+  #   pass
 
   foundTags.add(newRow['tag'])
   foundProcs.add(newRow['procs'])
@@ -123,6 +121,12 @@ def tm(t):
     print ("[ERR] Got type error trying to round {}".format(repr(t)))
     return None
 
+def ov(t):
+  try:
+    return round(t, 1)
+  except:
+    return None
+
 def noLeadZero(t):
   if t < 1:
     return str(t).replace('0', '', 1)
@@ -139,7 +143,7 @@ def sp(kb):
 # =========================================================================
 
 def mostRecentResultsFile(ws=False):
-  files = os.listdir("../results")
+  files = os.listdir("results")
   pattern = r'\d{6}-\d{6}'
   if ws:
     pattern = r'ws-' + pattern
@@ -158,7 +162,7 @@ else:
     print("[ERR] could not find most recent results file\n " + \
           "  check that these are formatted as 'YYMMSS-hhmmss'")
     sys.exit(1)
-  timingsFile = os.path.join('../results', mostRecent)
+  timingsFile = os.path.join('results', mostRecent)
 
 if len(sys.argv) > 2:
   workingSetFile = sys.argv[2]
@@ -170,15 +174,15 @@ else:
     print("[ERR] could not find most recent results/ws-* file\n " + \
           "  check that these are formatted as 'ws-YYMMSS-hhmmss'")
     sys.exit(1)
-  workingSetFile = os.path.join('../results', mostRecent)
+  workingSetFile = os.path.join('results', mostRecent)
 
 print("[INFO] reading {}".format(timingsFile))
 with open(timingsFile, 'r') as data:
   resultsData = json_careful_readlines(data)
-print("[INFO] reading {}".format(workingSetFile))
-with open(workingSetFile, 'r') as data:
-  workingSetData = json_careful_readlines(data)
-WS = [ parseStats(row) for row in workingSetData ]
+# print("[INFO] reading {}".format(workingSetFile))
+# with open(workingSetFile, 'r') as data:
+#   workingSetData = json_careful_readlines(data)
+# WS = [ parseStats(row) for row in workingSetData ]
 D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
 maxp = max(foundProcs)
@@ -199,13 +203,13 @@ def mplCCOverhead(tag):
   tcc = tm(averageTime(D, 'mpl-cc', tag, 1))
   tb = tm(averageTime(D, 'mlton', tag, 1))
   # return pcd(tcc, tb)
-  return tcc / tb
+  return ov(tcc / tb)
 
 def mplOverhead(tag):
   tcc = tm(averageTime(D, 'mpl', tag, 1))
   tb = tm(averageTime(D, 'mlton', tag, 1))
   # return pcd(tcc, tb)
-  return tcc / tb
+  return ov(tcc / tb)
 
 def interleave(a, b):
   return [ x for t in zip(a, b) for x in t ]
@@ -215,7 +219,7 @@ def left(ab):
 def right(ab):
   return [ ab[2*i+1] for i in xrange(0, len(ab)/2) ]
 
-foundTags = list(foundTags)
+foundTags = sorted(list(foundTags))
 displayTags = [ "{}({})".format(t, tm(averageTime(D, 'mlton', t, 1))) for t in foundTags ]
 N = len(foundTags)
 yA = [ mplCCOverhead(tag) for tag in foundTags ]
@@ -223,7 +227,7 @@ yB = [ mplOverhead(tag) for tag in foundTags ]
 y = interleave(yA, yB)
 
 ytickSpacing = 0.1
-yMin = 1.0
+yMin = min(y) - 0.1
 yMax = 2.25
 
 yBottom = 1.0
@@ -245,14 +249,15 @@ ax.set_ylabel('Overhead')
 ax.set_ylim([yMin,yMax])
 ax.set_xlim([min(x)-1,max(x)+1])
 ax.yaxis.set_major_locator(ticker.MultipleLocator(ytickSpacing))
+plt.axhline(y=1, color='black')
 ax.set_xticks(xCenters)
 ax.set_xticklabels(displayTags, rotation=65, ha='right', fontsize=12)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.yaxis.set_ticks_position('left')
 ax.xaxis.set_ticks_position('bottom')
-plt.bar(left(x), left(heights), align='center', bottom=1, color='gold', width=barWidth, label='LC+CC')
-plt.bar(right(x), right(heights), align='center', bottom=1, color='black', width=barWidth, label='LC only')
+plt.bar(left(x), left(heights), align='center', bottom=1, color='gold', width=barWidth, label='MPL/CC')
+plt.bar(right(x), right(heights), align='center', bottom=1, color='black', width=barWidth, label='MPL')
 ax.legend(loc='upper left')
 
 offset = transforms.ScaledTranslation(10/72., 0, fig.dpi_scale_trans)
@@ -260,22 +265,28 @@ for label in ax.xaxis.get_majorticklabels():
   label.set_transform(label.get_transform() + offset)
 
 def ann(t):
-  return "{:.2f}".format(t)
+  return "{:.1f}".format(t)
 
 for i in xrange(0, 2*N, 2):
-  if abs(y[i] - y[i+1]) < 0.02:
+  if abs(y[i] - y[i+1]) < 0.02 and y[i] < yMax and y[i+1] < yMax:
     yy = max(y[i], y[i+1])
-    if yy >= yMax:
-      plt.annotate(ann(yy), (xCenters[i/2] + 1.2 * barWidth/2, yMax), ha='right', va='top', fontsize=7)
-    else:
-      plt.annotate(ann(yy), (xCenters[i/2], yy+0.01), ha='center', fontsize=7)
+    # if yy >= yMax:
+    #   print("[INFO] value {} exceeds {}".format(ann(yy), ann(yMax)))
+    #   plt.annotate(ann(yy), (xCenters[i/2] + 1.2 * barWidth, yMax), ha='left', va='top', fontsize=7)
+    # else:
+    plt.annotate(ann(yy), (xCenters[i/2], yy+0.01), ha='center', fontsize=7)
   else:
     if y[i] >= yMax:
       plt.annotate(ann(y[i]), (xCenters[i/2] - 1.2 * barWidth, yMax), ha='right', va='top', fontsize=7)
+    elif y[i] < 1:
+      plt.annotate(ann(y[i]), (x[i], y[i]-0.01), va='top', ha='center', fontsize=7)
     else:
       plt.annotate(ann(y[i]), (x[i], y[i]+0.01), ha='center', fontsize=7)
+
     if y[i+1] >= yMax:
       plt.annotate(ann(y[i+1]), (xCenters[i/2] + 1.2 * barWidth, yMax), ha='left', va='top', fontsize=7)
+    elif y[i+1] < 1:
+      plt.annotate(ann(y[i+1]), (x[i+1], y[i+1]-0.01), va='top', ha='center', fontsize=7)
     else:
       plt.annotate(ann(y[i+1]), (x[i+1], y[i+1]+0.01), ha='center', fontsize=7)
 
@@ -290,6 +301,6 @@ for i in xrange(0, 2*N, 2):
 #     plt.annotate(str(tm(y[i])), (x[i], y[i]+0.01), ha='center', fontsize=8)
 
 fig.tight_layout()
-plt.savefig('overheads.pdf')
+plt.savefig('figures/overheads.pdf')
 
-print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
+print("[INFO] done reporting {}".format(timingsFile))
