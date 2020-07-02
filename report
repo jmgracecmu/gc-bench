@@ -524,6 +524,12 @@ def sd(x, y):
   except:
     return None
 
+def ss(x, y):
+  try:
+    return x - y
+  except:
+    return None
+
 def noLeadZero(x):
   try:
     if "0" == x[:1]:
@@ -607,19 +613,20 @@ print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
 # def highlight(s):
 # return "\\underline{\\bf" + s + "}"
 
-def highlight(s):
+def makeBold(s):
   return "{\\bf" + s + "}"
 
-def latexpcd(b, a):
+def latexpcd(b, a, highlight=True):
   try:
     xx = int(round(100.0 * (b-a) / abs(a)))
     result = ("+" if xx >= 0.0 else "") + ("{}\\%".format(xx))
-    if xx < 0:
-      return highlight(result) #TODO: highlight
+    if highlight and (xx < 0):
+      return makeBold(result)
     else:
       return result
-  except:
-    return None
+  except Exception as e:
+    sys.stderr.write("[WARN] " + str(e) + "\n")
+    return "--"
 
 pcdResultsFile = "figures/pcd-table.tex"
 with open(pcdResultsFile, 'w') as output:
@@ -635,9 +642,6 @@ with open(pcdResultsFile, 'w') as output:
       tpcd = latexpcd(mplcc, mpl)
       rpcd = latexpcd(rmplcc, rmpl)
 
-      tpcd = tpcd if tpcd is not None else "--"
-      rpcd = rpcd if rpcd is not None else "--"
-
       row.append("")
       row.append(tpcd)
       row.append(rpcd)
@@ -647,6 +651,14 @@ with open(pcdResultsFile, 'w') as output:
 print("[INFO] wrote to {}".format(pcdResultsFile))
 
 # ============================================================================
+
+def fmt(xx):
+  if xx is None:
+    return "--"
+  elif type(xx) is str:
+    return xx
+  else:
+    return noLeadZero(str(xx))
 
 timeTableResults = "figures/all-time-table.tex"
 with open(timeTableResults, 'w') as output:
@@ -660,16 +672,28 @@ with open(timeTableResults, 'w') as output:
     row = \
       [ mlton
       , mpl1
+      , fmt(mplcc1) + " (" + latexpcd(mplcc1, mpl1, highlight=False) + ")"
       , tm(sd(mpl1, mlton))
-      , mplp
-      , tm(sd(mlton, mplp))
-      , mplcc1
       , tm(sd(mplcc1, mlton))
-      , mplccp
+      , mplp
+      , fmt(mplccp) + " (" + latexpcd(mplccp, mplp, highlight=False) + ")"
+      , tm(sd(mlton, mplp))
       , tm(sd(mlton, mplccp))
       ]
 
-    row = [ noLeadZero(str(x)) if x is not None else "--" for x in row ]
+    # row = \
+    #   [ mlton
+    #   , mpl1
+    #   , tm(sd(mpl1, mlton))
+    #   , mplp
+    #   , tm(sd(mlton, mplp))
+    #   , mplcc1
+    #   , tm(sd(mplcc1, mlton))
+    #   , mplccp
+    #   , tm(sd(mlton, mplccp))
+    #   ]
+
+    row = [ fmt(x) for x in row ]
     output.write(" & ".join([tag] + row))
     output.write("  \\\\\n")
 print("[INFO] wrote to {}".format(timeTableResults))
@@ -677,30 +701,42 @@ print("[INFO] wrote to {}".format(timeTableResults))
 # ============================================================================
 
 def spg(kb):
-  return sd(kb, 1000.0 * 1000.0)
-
-def display(gb):
-  if gb < .01:
-    return '{:.4f}'.format(gb)
-  elif gb < .1:
-    return '{:.3f}'.format(gb)
-  elif gb < 1:
-    return '{:.2f}'.format(gb)
-  else:
-    return '{:.1f}'.format(gb)
+  try:
+    gb = kb / 1000.0 / 1000.0
+    if gb < .01:
+      return round(gb, 4)
+    elif gb < .1:
+      return round(gb, 3)
+    elif gb < 1:
+      return round(gb, 2)
+    else:
+      return round(gb, 1)
+  except:
+    return None
 
 spaceTableResults = "figures/all-space-table.tex"
 with open(spaceTableResults, 'w') as output:
   for tag in orderedTags:
+    ws = spg(averageSpace(WS, 'mlton-working-set', tag, 1))
+    mlton = spg(averageSpace(D, 'mlton', tag, 1))
+    mpl1 = spg(averageSpace(D, 'mpl', tag, 1))
+    mplp = spg(averageSpace(D, 'mpl', tag, maxp))
+    mplcc1 = spg(averageSpace(D, 'mpl-cc', tag, 1))
+    mplccp = spg(averageSpace(D, 'mpl-cc', tag, maxp))
+
     row = \
-      [ spg(averageSpace(WS, 'mlton-working-set', tag, 1))
-      , spg(averageSpace(D, 'mlton', tag, 1))
-      , spg(averageSpace(D, 'mpl', tag, 1))
-      , spg(averageSpace(D, 'mpl', tag, maxp))
-      , spg(averageSpace(D, 'mpl-cc', tag, 1))
-      , spg(averageSpace(D, 'mpl-cc', tag, maxp))
+      [ mlton
+      , mpl1
+      , fmt(mplcc1) + " (" + latexpcd(mplcc1, mpl1, highlight=True) + ")"
+      , tm(sd(mpl1, mlton))
+      , tm(sd(mplcc1, mlton))
+      , mplp
+      , fmt(mplccp) + " (" + latexpcd(mplccp, mplp, highlight=True) + ")"
+      , tm(sd(mplp, mlton))
+      , tm(sd(mplccp, mlton))
       ]
-    row = [ noLeadZero(display(x)) if x is not None else "--" for x in row ]
+
+    row = [ fmt(x) for x in row ]
     output.write(" & ".join([tag] + row))
     output.write("  \\\\\n")
 print("[INFO] wrote to {}".format(spaceTableResults))
