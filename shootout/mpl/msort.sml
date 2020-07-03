@@ -4,7 +4,9 @@ val n = CLA.parseInt "N" (100 * 1000 * 1000)
 val _ = print ("N " ^ Int.toString n ^ "\n")
 
 val repeat = CLA.parseInt "repeat" 10
+val warmup = CLA.parseInt "warmup" 5
 val _ = print ("repeat " ^ Int.toString repeat ^ "\n")
+val _ = print ("warmup " ^ Int.toString warmup ^ "\n")
 
 val _ = print ("hashes "
   ^ LargeInt.toString (Word64.toLargeIntX (Util.hash64 (Word64.fromInt 0))) ^ " "
@@ -22,6 +24,17 @@ fun elem i =
 val input = ArraySlice.full (SeqBasis.tabulate 10000 (0, n) elem)
 val _ = print ("input " ^ Util.summarizeArraySlice 8 Int32.toString input ^ "\n")
 
+fun loopWarmup k =
+  if k >= warmup then () else
+    let
+      val (_, tm) = Util.getTime (fn _ => Mergesort.sort Int32.compare input)
+    in
+      print ("warmup " ^ Time.fmt 4 tm ^ "s\n");
+      loopWarmup (k+1)
+    end
+
+val _ = loopWarmup 0
+
 fun loopRepeat tms k =
   if k >= repeat then tms else
   let
@@ -34,7 +47,10 @@ fun loopRepeat tms k =
     loopRepeat (ms :: tms) (k+1)
   end
 
+val t0 = Time.now ()
 val tms = loopRepeat [] 0
+val t1 = Time.now ()
+val endToEnd = Time.- (t1, t0)
 
 val total = List.foldl op+ 0 tms
 val min = List.foldl Int.min (valOf Int.maxInt) tms
@@ -42,6 +58,7 @@ val max = List.foldl Int.max 0 tms
 val avg = total div repeat
 
 val _ = print "==== summary ====\n"
+val _ = print ("end-to-end " ^ Time.fmt 4 endToEnd ^ "s\n")
 val _ = print ("tot " ^ Int.toString total ^ "\n")
 val _ = print ("min " ^ Int.toString min ^ "\n")
 val _ = print ("max " ^ Int.toString max ^ "\n")

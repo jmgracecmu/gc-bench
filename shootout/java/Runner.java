@@ -34,6 +34,7 @@ class Runner {
     }
 
     /* pairs of (msElapsed, round number) */
+    long t0 = System.nanoTime();
     ArrayList<Pair<Long,Integer>> times = new ArrayList<Pair<Long,Integer>>();
     for (int r = 0; r < reps; r++) {
       System.out.printf("\n==== run %d ====\n", r);
@@ -44,6 +45,9 @@ class Runner {
       times.add(new Pair<Long,Integer>(msElapsed, r));
       System.out.printf("wall %d\n", msElapsed);
     }
+    long t1 = System.nanoTime();
+    long endToEnd = (t1 - t0) / NPMS;
+    System.out.printf("end-to-end %.3fs\n", ((float)endToEnd)/1000.0);
 
     Comparator<Pair<Long,Integer>> byTime =
 		  (Pair<Long,Integer> o1, Pair<Long,Integer> o2) ->

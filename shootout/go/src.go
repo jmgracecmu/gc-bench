@@ -94,6 +94,7 @@ func main() {
 // Sort #rounds times
   fmt.Println("\n------- Actual sorting begins -------")
 
+  time_begin := time.Now()
   for r:=0;r<rounds;r++ {
     fmt.Printf("Round %v: \n", r)
 
@@ -121,11 +122,14 @@ func main() {
     // verify(output)
     fmt.Println()
   }
+  time_end_to_end := time.Since(time_begin).Seconds()
 
   total_time := 0.0
   for _,t := range(runtimes) {
     total_time += t
   }
+
+  fmt.Printf("end-to-end %.3fs\n", time_end_to_end);
 
 // Print the best running-time
   best_time := runtimes[0]

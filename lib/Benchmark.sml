@@ -40,13 +40,17 @@ struct
              )
 
       val _ = print (msg ^ "\n")
+      val t0 = Time.now ()
       val (result, tms) = getTimes rep f
+      val t1 = Time.now ()
+      val endToEnd = Time.- (t1, t0)
 
       val total = List.foldl Time.+ Time.zeroTime tms
       val avg = Time.toReal total / (Real.fromInt rep)
     in
       print ("average " ^ Real.fmt (StringCvt.FIX (SOME 4)) avg ^ "s\n");
       print ("total   " ^ Time.fmt 4 total ^ "s\n");
+      print ("end-to-end " ^ Time.fmt 4 endToEnd ^ "s\n");
       result
     end
 

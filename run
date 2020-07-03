@@ -7,5 +7,7 @@ NOW=$(date '+%y%m%d-%H%M%S')
 scripts/gencmds.py exp.json \
 | grep -v "\"config\": \"mlton-working-set\"" \
 | grep -v "ocaml-" \
-| scripts/runcmds.py --compile --output results/$NOW $@
+| grep -v "\"tag\": \"fib\"" \
+| grep -v "\"tag\": \"nqueens\"" \
+| scripts/runcmds.py --repeat 10 --compile --output results/$NOW $@
 echo "[INFO] wrote timings results to 'results/$NOW'"
