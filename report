@@ -378,6 +378,7 @@ maxp = max(foundProcs)
 
 orderedTags = sorted(list(foundTags))
 orderedTags = [ t for t in orderedTags if "ocaml-" not in t ]
+orderedTags = [ t for t in orderedTags if t != "fib" and t != "nqueens" ]
 
 def defaultAlign(i):
   return "r" if i == 0 else "l"
