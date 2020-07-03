@@ -181,9 +181,24 @@ def maxRes(config, procs):
 
 # ==========================================================================
 
+def renameConfig(c):
+  if c == 'mpl':
+    return 'MPL'
+  elif c == 'mpl-cc':
+    return 'MPL/CC (Ours)'
+  elif c == 'java':
+    return 'Java'
+  elif c == 'go':
+    return 'Go'
+  return '??'
+
 configs = ['mpl', 'mpl-cc', 'java', 'go']
-markers = ['o','v','^','<','>','s','P','*','X','d','D','+','x','']
+colors = ['blue', 'green', 'red', 'darkturquoise', 'black', 'darkviolet', 'goldenrod', 'dimgrey']
+markers = ['o','v','^','<','>','s','d','D']
+linestyles = ['solid', 'dashed']
 procs = [1,10,20,30,40,50,60,70]
+
+plt.figure(figsize=(6,6))
 
 fontSize = 18
 legendFontSize = 14
@@ -191,10 +206,14 @@ markerSize = 8
 
 baseline = averageAfterWarmup('mlton', 1)
 
+plt.plot(procs, procs, marker="", color="grey", linewidth=0.5)
 lines = []
-for (config, marker) in zip(configs, markers):
+for (i, config) in enumerate(configs):
   speedups = map(lambda p: baseline / averageAfterWarmup(config, p), procs)
-  lines.append(plt.plot(procs, speedups, marker=marker, markersize=markerSize, linewidth=1))
+  color = colors[i % len(colors)]
+  marker = markers[i % len(markers)]
+  linestyle = linestyles[i / len(markers)]
+  lines.append(plt.plot(procs, speedups, marker=marker, markersize=markerSize, linewidth=1, color=color, linestyle=linestyle))
 
 # this sets the legend.
 font = {
@@ -215,10 +234,10 @@ plt.xlabel('Processors', fontsize=fontSize)
 plt.ylabel('Speedup', fontsize=fontSize)
 plt.yticks(procs, fontsize=fontSize)
 plt.xticks(procs, fontsize=fontSize)
-plt.gca().grid(axis='both', linestyle='--')
+plt.gca().grid(axis='both', linestyle='dotted')
 plt.gca().set_axisbelow(True)
 # plt.margins(y=10)
-plt.legend([b[0] for b in lines], configs)
+plt.legend([b[0] for b in lines], map(renameConfig, configs))
 
 outputName = 'figures/shootout-speedups.pdf'
 plt.savefig(outputName, bbox_inches='tight')
