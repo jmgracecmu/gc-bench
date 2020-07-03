@@ -247,13 +247,21 @@ sys.stdout.write("[INFO] output written to {}\n".format(outputName))
 
 # ==========================================================================
 
+def makeBold(s):
+  return "{\\bf " + s + "}"
+
+def textsf(s):
+  return "\\textsf{" + s + "}"
+
 tableFile = 'figures/shootout-table.tex'
 
 def makeTableRow(config):
   c = config
   row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 70), maxRes(c, 1), maxRes(c, 70)]
   row = map(lambda x: "{:.2f}".format(x) if x is not None else "--", row)
-  return " & ".join([renameConfig(c)] + row)
+  row = [textsf(renameConfig(c))] + row
+  row = row if c != 'mpl-cc' else map(makeBold, row)
+  return " & ".join(row)
 
 with open(tableFile, 'w') as f:
   for c in ['mlton','mpl','mpl-cc','java','go']:
