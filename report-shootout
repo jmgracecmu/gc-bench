@@ -97,6 +97,19 @@ def getSpace(data, config, tag, procs):
       return row['space']
   return None
 
+def renameConfig(c):
+  if c == 'mlton':
+    return 'MLton'
+  elif c == 'mpl':
+    return 'MPL'
+  elif c == 'mpl-cc':
+    return 'MPL/CC (Ours)'
+  elif c == 'java':
+    return 'Java'
+  elif c == 'go':
+    return 'Go'
+  return '??'
+
 # ===========================================================================
 
 def mostRecentResultsFile():
@@ -181,17 +194,6 @@ def maxRes(config, procs):
 
 # ==========================================================================
 
-def renameConfig(c):
-  if c == 'mpl':
-    return 'MPL'
-  elif c == 'mpl-cc':
-    return 'MPL/CC (Ours)'
-  elif c == 'java':
-    return 'Java'
-  elif c == 'go':
-    return 'Go'
-  return '??'
-
 configs = ['mpl', 'mpl-cc', 'java', 'go']
 colors = ['blue', 'green', 'red', 'darkturquoise', 'black', 'darkviolet', 'goldenrod', 'dimgrey']
 markers = ['o','v','^','<','>','s','d','D']
@@ -251,7 +253,7 @@ def makeTableRow(config):
   c = config
   row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 70), maxRes(c, 1), maxRes(c, 70)]
   row = map(lambda x: "{:.2f}".format(x) if x is not None else "--", row)
-  return " & ".join([c] + row)
+  return " & ".join([renameConfig(c)] + row)
 
 with open(tableFile, 'w') as f:
   for c in ['mlton','mpl','mpl-cc','java','go']:
