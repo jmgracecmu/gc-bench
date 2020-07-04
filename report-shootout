@@ -51,7 +51,8 @@ def getWallTimes(row):
   return tms
 
 statsPatterns = \
-  [ ("space", parseKiB, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
+  [ ("time", float, reCompile(r"^end-to-end\s+(\d+.\d+)s$"))
+  , ("space", parseKiB, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
   ]
 
 foundTags = set()
@@ -71,15 +72,24 @@ def parseStats(row):
   except KeyError:
     pass
 
-  try:
-    newRow['time'] = float(newRow['elapsed'])
-  except KeyError:
-    pass
+  # try:
+  #   newRow['time'] = float(newRow['elapsed'])
+  # except KeyError:
+  #   pass
 
   foundTags.add(newRow['tag'])
   foundProcs.add(newRow['procs'])
 
   return newRow
+
+def findTrials(data, config, tag, procs):
+  result = []
+  for row in data:
+    if (row['config'] == config and \
+        row['tag'] == tag and \
+        row['procs'] == procs):
+      result.append(row)
+  return result
 
 def getTimes(data, config, tag, procs):
   for row in data:
@@ -96,6 +106,35 @@ def getSpace(data, config, tag, procs):
         row['procs'] == procs):
       return row['space']
   return None
+
+def averageTime(data, config, tag, procs):
+  tms = [ r['time'] for r in findTrials(data, config, tag, procs) if 'time' in r ]
+
+  # cut out the max time to account for possible file IO slowdown
+  # (this should only happen the first time the file is loaded)
+  # if len(tms) > 1:
+  #   maxt = max(tms)
+  #   tms = [ t for t in tms if t != maxt ]
+
+  # take last ten runs
+  if len(tms) > 10:
+    tms = tms[-10:]
+
+  try:
+    return sum(tms) / len(tms)
+  except:
+    return None
+
+def averageSpace(data, config, tag, procs):
+  sp = [ r['space'] for r in findTrials(data, config, tag, procs) if 'space' in r ]
+
+  if len(sp) > 10:
+    sp = sp[-10:]
+
+  try:
+    return sum(sp) / len(sp)
+  except:
+    return None
 
 def renameConfig(c):
   if c == 'mlton':
@@ -140,19 +179,28 @@ D = [ parseStats(row) for row in resultsData ]
 # ===========================================================================
 
 # remove first 5 runs, call it warmup
-warmupRuns = 5
+# warmupRuns = 5
+# def averageAfterWarmup(config, procs):
+#   tms = getTimes(D, config, 'sort-shootout', procs)
+#   try:
+#     tms = tms[warmupRuns:]
+#     return sum(tms) / len(tms)
+#   except:
+#     return None
+
 def averageAfterWarmup(config, procs):
-  tms = getTimes(D, config, 'sort-shootout', procs)
-  try:
-    tms = tms[warmupRuns:]
-    return sum(tms) / len(tms)
-  except:
-    return None
+  return averageTime(D, config, 'sort-shootout', procs)
+
+# def maxRes(config, procs):
+#   sp = getSpace(D, config, 'sort-shootout', procs)
+#   try:
+#     return sp / 1000.0 / 1000.0    # GB
+#   except:
+#     return None
 
 def maxRes(config, procs):
-  sp = getSpace(D, config, 'sort-shootout', procs)
   try:
-    return sp / 1000.0 / 1000.0    # GB
+    return averageSpace(D, config, 'sort-shootout', procs) / 1000.0 / 1000.0
   except:
     return None
 

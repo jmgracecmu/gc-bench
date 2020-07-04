@@ -65,7 +65,7 @@ def parseB(bytesStr):
   return int(bytesStr) / 1000.0
 
 statsPatterns = \
-  [ ("time", float, reCompile(r"^average\s+(\d+.\d+)s$"))
+  [ ("time", float, reCompile(r"^end-to-end\s+(\d+.\d+)s$"))
   , ("space", parseKiB, reCompile(r"^\s*Maximum resident set size \(kbytes\): (\d+).*$"))
   , ("num-local", int, reCompile(r"^num local: (\d+)$"))
   , ("local-reclaimed", parseB, reCompile(r"^local reclaimed: (\d+)$"))
@@ -203,9 +203,13 @@ def averageTime(data, config, tag, procs):
 
   # cut out the max time to account for possible file IO slowdown
   # (this should only happen the first time the file is loaded)
-  if len(tms) > 1:
-    maxt = max(tms)
-    tms = [ t for t in tms if t != maxt ]
+  # if len(tms) > 1:
+  #   maxt = max(tms)
+  #   tms = [ t for t in tms if t != maxt ]
+
+  # take last ten runs
+  if len(tms) > 10:
+    tms = tms[-10:]
 
   try:
     return sum(tms) / len(tms)
@@ -214,6 +218,10 @@ def averageTime(data, config, tag, procs):
 
 def averageSpace(data, config, tag, procs):
   sp = [ r['space'] for r in findTrials(data, config, tag, procs) if 'space' in r ]
+
+  if len(sp) > 10:
+    sp = sp[-10:]
+
   try:
     return sum(sp) / len(sp)
   except:
