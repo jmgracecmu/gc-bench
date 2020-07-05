@@ -59,7 +59,7 @@ def reCompile(exp):
 # promo time: 8
 
 def parseKiB(kibStr):
-  return int(kibStr) * 1024.0 / 1000.0
+  return float(int(kibStr)) * 1024.0 / 1000.0
 
 def parseB(bytesStr):
   return int(bytesStr) / 1000.0
@@ -99,10 +99,10 @@ def parseStats(row):
   newRow['procs'] = int(newRow.get('procs', '1'))
   newRow['config'] = renameConfig[row['config']]
 
-  try:
-    newRow['space'] = float(newRow['space'])
-  except KeyError:
-    pass
+  # try:
+  #   newRow['space'] = float(newRow['space'])
+  # except KeyError:
+  #   pass
 
   # try:
   #   newRow['time'] = float(newRow['elapsed'])
@@ -242,22 +242,32 @@ def tm(t):
   # if t > 10.0:
   #   return int(round(t))
   try:
-    if t >= 1.0:
-      return round(t, 1)
-    elif t >= 0.1:
-      return round(t, 2)
-    else:
+    if t < 1.0:
       return round(t, 3)
+    elif t < 10.0:
+      return round(t, 2)
+    elif t < 100.0:
+      return round(t, 1)
+    else:
+      return round(t)
   except TypeError:
     print ("[ERR] Got type error trying to round {}".format(repr(t)))
     return None
 
-def noLeadZero(t):
-  if t is None:
+def ov(x):
+  if x is None:
     return None
-  if t < 1:
-    return str(t).replace('0', '', 1)
-  return str(t)
+  return "{:.2f}".format(x)
+
+def su(x):
+  if x is None:
+    return None
+  return str(int(round(x)))
+
+def bu(x):
+  if x is None:
+    return None
+  return "{:.1f}".format(x)
 
 def sp(kb):
   if kb is None:
@@ -666,8 +676,14 @@ def fmt(xx):
     return "--"
   elif type(xx) is str:
     return xx
+  elif x < 1.0:
+    return noLeadZero("{:.3f}".format(xx))
+  elif x < 10.0:
+    return "{:.2f}".format(xx)
+  elif x < 100.0:
+    return "{:.1f}".format(xx)
   else:
-    return noLeadZero(str(xx))
+    return str(int(round(xx)))
 
 timeTableResults = "figures/all-time-table.tex"
 with open(timeTableResults, 'w') as output:
@@ -682,12 +698,12 @@ with open(timeTableResults, 'w') as output:
       [ mlton
       , mpl1
       , fmt(mplcc1) + " (" + latexpcd(mplcc1, mpl1, highlight=False) + ")"
-      , tm(sd(mpl1, mlton))
-      , tm(sd(mplcc1, mlton))
+      , ov(sd(mpl1, mlton))
+      , ov(sd(mplcc1, mlton))
       , mplp
       , fmt(mplccp) + " (" + latexpcd(mplccp, mplp, highlight=False) + ")"
-      , tm(sd(mlton, mplp))
-      , tm(sd(mlton, mplccp))
+      , su(sd(mlton, mplp))
+      , su(sd(mlton, mplccp))
       ]
 
     # row = \
@@ -709,17 +725,35 @@ print("[INFO] wrote to {}".format(timeTableResults))
 
 # ============================================================================
 
+def sfmt(xx):
+  if xx is None:
+    return "--"
+  elif type(xx) is str:
+    return xx
+  elif xx < 0.01:
+    return noLeadZero("{:.4f}".format(xx))
+  elif xx < 0.1:
+    return noLeadZero("{:.3f}".format(xx))
+  elif xx < 1.0:
+    return "{:.2f}".format(xx)
+  elif xx < 10.0:
+    return "{:.1f}".format(xx)
+  else:
+    return str(int(round(xx)))
+
 def spg(kb):
   try:
-    gb = kb / 1000.0 / 1000.0
+    gb = kb / (1000.0 * 1000.0)
     if gb < .01:
       return round(gb, 4)
     elif gb < .1:
       return round(gb, 3)
-    elif gb < 1:
+    elif gb < 1.0:
       return round(gb, 2)
-    else:
+    elif gb < 10.0:
       return round(gb, 1)
+    else:
+      return round(gb, 0)
   except:
     return None
 
@@ -736,16 +770,16 @@ with open(spaceTableResults, 'w') as output:
     row = \
       [ mlton
       , mpl1
-      , fmt(mplcc1) + " (" + latexpcd(mplcc1, mpl1, highlight=True) + ")"
-      , tm(sd(mpl1, mlton))
-      , tm(sd(mplcc1, mlton))
+      , sfmt(mplcc1) + " (" + latexpcd(mplcc1, mpl1, highlight=True) + ")"
+      , bu(sd(mpl1, mlton))
+      , bu(sd(mplcc1, mlton))
       , mplp
-      , fmt(mplccp) + " (" + latexpcd(mplccp, mplp, highlight=True) + ")"
-      , tm(sd(mplp, mlton))
-      , tm(sd(mplccp, mlton))
+      , sfmt(mplccp) + " (" + latexpcd(mplccp, mplp, highlight=True) + ")"
+      , bu(sd(mplp, mlton))
+      , bu(sd(mplccp, mlton))
       ]
 
-    row = [ fmt(x) for x in row ]
+    row = [ sfmt(x) for x in row ]
     output.write(" & ".join([tag] + row))
     output.write("  \\\\\n")
 print("[INFO] wrote to {}".format(spaceTableResults))
