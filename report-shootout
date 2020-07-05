@@ -142,7 +142,7 @@ def renameConfig(c):
   elif c == 'mpl':
     return 'MPL'
   elif c == 'mpl-cc':
-    return 'MPL/CC (Ours)'
+    return 'MPL* (Ours)'
   elif c == 'java':
     return 'Java'
   elif c == 'go':
@@ -242,7 +242,7 @@ def maxRes(config, procs):
 
 # ==========================================================================
 
-configs = ['mpl', 'mpl-cc', 'java', 'go']
+configs = ['mpl-cc', 'java', 'go']
 colors = ['blue', 'green', 'red', 'darkturquoise', 'black', 'darkviolet', 'goldenrod', 'dimgrey']
 markers = ['o','v','^','<','>','s','d','D']
 linestyles = ['solid', 'dashed']
@@ -254,7 +254,9 @@ fontSize = 18
 legendFontSize = 14
 markerSize = 8
 
-baseline = averageAfterWarmup('mlton', 1)
+baseline = min([averageAfterWarmup(c, 1) for c in configs])
+
+# baseline = averageAfterWarmup('mlton', 1)
 
 plt.plot(procs, procs, marker="", color="grey", linewidth=0.5)
 lines = []
@@ -301,18 +303,28 @@ def makeBold(s):
 def textsf(s):
   return "\\textsf{" + s + "}"
 
+def display(x):
+  if x < 1.0:
+    return "{:.3f}".format(x)
+  elif x < 10.0:
+    return "{:.2f}".format(x)
+  elif x < 100.0:
+    return "{:.1f}".format(x)
+  else:
+    return str(int(round(x)))
+
 tableFile = 'figures/shootout-table.tex'
 
 def makeTableRow(config):
   c = config
   row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 70), maxRes(c, 1), maxRes(c, 70)]
-  row = map(lambda x: "{:.2f}".format(x) if x is not None else "--", row)
+  row = map(lambda x: display(x) if x is not None else "--", row)
   row = [textsf(renameConfig(c))] + row
   row = row if c != 'mpl-cc' else map(makeBold, row)
   return " & ".join(row)
 
 with open(tableFile, 'w') as f:
-  for c in ['mlton','mpl','mpl-cc','java','go']:
+  for c in configs:
     f.write(makeTableRow(c) + " \\\\\n")
 
 sys.stdout.write("[INFO] table rows written to {}\n".format(tableFile))
