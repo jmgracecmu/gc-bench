@@ -242,9 +242,9 @@ def tm(t):
   # if t > 10.0:
   #   return int(round(t))
   try:
-    if t < 1.0:
-      return round(t, 3)
-    elif t < 10.0:
+    # if t < 1.0:
+    #   return round(t, 3)
+    if t < 10.0:
       return round(t, 2)
     elif t < 100.0:
       return round(t, 1)
@@ -635,9 +635,16 @@ print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
 def makeBold(s):
   return "{\\bf" + s + "}"
 
-def latexpcd(b, a, highlight=True):
+def pcd(b, a):
   try:
     xx = int(round(100.0 * (b-a) / abs(a)))
+    return xx
+  except:
+    return None
+
+def latexpcd(b, a, highlight=True):
+  try:
+    xx = pcd(b, a)
     result = ("+" if xx >= 0.0 else "") + ("{}\\%".format(xx))
     if highlight and (xx < 0):
       return makeBold(result)
@@ -676,14 +683,19 @@ def fmt(xx):
     return "--"
   elif type(xx) is str:
     return xx
-  elif x < 1.0:
-    return noLeadZero("{:.3f}".format(xx))
-  elif x < 10.0:
+  # elif xx < 1.0:
+  #   return noLeadZero("{:.3f}".format(xx))
+  elif xx < 10.0:
     return "{:.2f}".format(xx)
-  elif x < 100.0:
+  elif xx < 100.0:
     return "{:.1f}".format(xx)
   else:
     return str(int(round(xx)))
+
+pcdsT1 = []
+pcdsTp = []
+overheads = []
+overheadsNoPrimes = []
 
 timeTableResults = "figures/all-time-table.tex"
 with open(timeTableResults, 'w') as output:
@@ -693,6 +705,12 @@ with open(timeTableResults, 'w') as output:
     mplp = tm(averageTime(D, 'mpl', tag, maxp))
     mplcc1 = tm(averageTime(D, 'mpl-cc', tag, 1))
     mplccp = tm(averageTime(D, 'mpl-cc', tag, maxp))
+
+    pcdsT1.append(pcd(mplcc1, mpl1))
+    pcdsTp.append(pcd(mplccp, mplp))
+    overheads.append(sd(mplcc1, mlton))
+    if tag != "primes":
+      overheadsNoPrimes.append(sd(mplcc1, mlton))
 
     row = \
       [ mlton
@@ -722,6 +740,17 @@ with open(timeTableResults, 'w') as output:
     output.write(" & ".join([tag] + row))
     output.write("  \\\\\n")
 print("[INFO] wrote to {}".format(timeTableResults))
+
+pcdsT1 = [x for x in pcdsT1 if x is not None]
+pcdsTp = [x for x in pcdsTp if x is not None]
+overheads = [x for x in overheads if x is not None]
+overheadsNoPrimes = [x for x in overheadsNoPrimes if x is not None]
+print("AVERAGE TIME PCD 1: {}".format(int(sum(pcdsT1) / len(pcdsT1))))
+print("AVERAGE TIME PCD {}: {}".format(maxp, int(sum(pcdsTp) / len(pcdsTp))))
+print("AVERAGE OVERHEADS: {}".format(sum(overheads) / len(overheads)))
+print("AVERAGE OVERHEADS (no primes): {}".format(sum(overheadsNoPrimes) / len(overheadsNoPrimes)))
+
+# ============================================================================
 
 # ============================================================================
 
@@ -757,6 +786,9 @@ def spg(kb):
   except:
     return None
 
+pcdsR1 = []
+pcdsRp = []
+
 spaceTableResults = "figures/all-space-table.tex"
 with open(spaceTableResults, 'w') as output:
   for tag in orderedTags:
@@ -766,6 +798,9 @@ with open(spaceTableResults, 'w') as output:
     mplp = spg(averageSpace(D, 'mpl', tag, maxp))
     mplcc1 = spg(averageSpace(D, 'mpl-cc', tag, 1))
     mplccp = spg(averageSpace(D, 'mpl-cc', tag, maxp))
+
+    pcdsR1.append(pcd(mplcc1, mpl1))
+    pcdsRp.append(pcd(mplccp, mplp))
 
     row = \
       [ mlton
@@ -783,6 +818,11 @@ with open(spaceTableResults, 'w') as output:
     output.write(" & ".join([tag] + row))
     output.write("  \\\\\n")
 print("[INFO] wrote to {}".format(spaceTableResults))
+
+pcdsR1 = [x for x in pcdsR1 if x is not None]
+pcdsRp = [x for x in pcdsRp if x is not None]
+print("AVERAGE SPACE PCD 1: {}".format(int(sum(pcdsR1) / len(pcdsR1))))
+print("AVERAGE SPACE PCD {}: {}".format(maxp, int(sum(pcdsRp) / len(pcdsRp))))
 
 # ============================================================================
 
