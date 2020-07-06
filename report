@@ -696,6 +696,7 @@ pcdsT1 = []
 pcdsTp = []
 overheads = []
 overheadsNoPrimes = []
+speedups = []
 
 timeTableResults = "figures/all-time-table.tex"
 with open(timeTableResults, 'w') as output:
@@ -709,6 +710,7 @@ with open(timeTableResults, 'w') as output:
     pcdsT1.append(pcd(mplcc1, mpl1))
     pcdsTp.append(pcd(mplccp, mplp))
     overheads.append(sd(mplcc1, mlton))
+    speedups.append(sd(mlton, mplccp))
     if tag != "primes":
       overheadsNoPrimes.append(sd(mplcc1, mlton))
 
@@ -745,10 +747,12 @@ pcdsT1 = [x for x in pcdsT1 if x is not None]
 pcdsTp = [x for x in pcdsTp if x is not None]
 overheads = [x for x in overheads if x is not None]
 overheadsNoPrimes = [x for x in overheadsNoPrimes if x is not None]
+speedups = [x for x in speedups if x is not None]
 print("AVERAGE TIME PCD 1: {}".format(int(sum(pcdsT1) / len(pcdsT1))))
 print("AVERAGE TIME PCD {}: {}".format(maxp, int(sum(pcdsTp) / len(pcdsTp))))
 print("AVERAGE OVERHEADS: {}".format(sum(overheads) / len(overheads)))
 print("AVERAGE OVERHEADS (no primes): {}".format(sum(overheadsNoPrimes) / len(overheadsNoPrimes)))
+print("AVERAGE SPEEDUPS: {}".format(sum(speedups) / len(speedups)))
 
 # ============================================================================
 
