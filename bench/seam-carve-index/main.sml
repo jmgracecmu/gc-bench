@@ -34,7 +34,10 @@ val _ =
               if Seq.nth X k < 0 then
                 PPM.elem image (i, j)
               else
-                Color.red
+                Color.hsv { h = 100.0 * (Real.fromInt (Seq.nth X k) / Real.fromInt numSeams)
+                          , s = 1.0
+                          , v = 1.0
+                          }
             end))
         }
       val (_, tm) = Util.getTime (fn _ => PPM.write outfile carved)
