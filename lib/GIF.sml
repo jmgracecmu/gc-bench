@@ -3,12 +3,154 @@ sig
   type pixel = Color.pixel
   type image = {height: int, width: int, data: pixel Seq.t}
 
+  (* LZW compression is one of the substeps of generating a GIF.
+   * I've broken it up here into three parts:
+   *   1. choosing a color palette (and renaming each pixel with color indices)
+   *   2. generating a code stream from the color indices
+   *   3. packing the code stream into a bit stream.
+   *)
+  structure LZW:
+  sig
+    (* Simplify colors: choose up to 256 colors, and replace each pixel
+     * with its color index. The color table will be used as the GIF
+     * color table. *)
+    val chooseColors: image -> {colors: pixel Seq.t, indices: int Seq.t}
+
+    (* Using the color indices given, generate the code stream. Note that
+     * this step inserts clear- and EOI codes. The clear-code is
+     * #numColors, and the EOI code is #(numColors+1). *)
+    val codeStream: {numColors: int, indices: int Seq.t} -> int Seq.t
+
+    (* Final step of LZW compression: pack the code stream into bits with
+     * flexible bit-lengths. This step also inserts sub-block sizes. *)
+    val packCodeStream: int Seq.t -> Word8.word Seq.t
+  end
+
   val write: string -> image -> unit
 end =
 struct
 
+  structure AS = ArraySlice
+
   type pixel = Color.pixel
   type image = {height: int, width: int, data: pixel Seq.t}
+
+  structure LZW =
+  struct
+
+    (* GIFs allow at most 256 colors. Here's a simple algorithm to choose 256
+     * colors based on sampling.
+     *
+     * First, we blindly choose 216 = 6*6*6 quantized colors. This leaves
+     * 40 colors which can be chosen to better represent the image. (But of
+     * course, we can always fall back on the quantized colors to get an
+     * "okay" result...)
+     *
+     * To pick the 40 representative colors, we sample a bunch of pixels,
+     * deduplicate them and then choose (up to) 40 of the most frequently
+     * occuring within the sample.
+     *
+     * Not exactly the best algorithm, but oh well.
+     *)
+    fun chooseColors ({data, width, height}: image) =
+      let
+        val n = Seq.length data
+
+        val sampleSize = 512
+        val sample =
+          if n <= sampleSize then
+            data
+          else
+            Seq.tabulate (fn i => Seq.nth data ((Util.hash i) mod n)) sampleSize
+
+        val sampleSize = Seq.length sample
+        val sample = Mergesort.sort Color.compare sample
+
+        val offsets =
+          AS.full (SeqBasis.filter 2000 (0, sampleSize+1)
+            (fn i => i)
+            (fn i => i = 0 orelse i = sampleSize orelse
+              Seq.nth sample (i-1) <> Seq.nth sample i))
+        fun off i = Seq.nth offsets i
+        val numUniq = Seq.length offsets - 1
+
+        (* Take first 40 of most frequent colors. Note that the comparison
+         * is swapped to put most frequent at front. *)
+        val histogram =
+          Seq.take
+            (Mergesort.sort (fn ((_, n1), (_, n2)) => Int.compare (n2, n1))
+            (Seq.tabulate (fn i => (Seq.nth sample (off i), off (i+1) - off i)) numUniq))
+          (Int.min (40, numUniq))
+
+        (* the actual palette consists of
+         *   + 216 quantized colors
+         *   + 40 most frequent colors
+         * which totals to 256 colors.
+         *)
+
+        (* fun q c = Word8.fromInt (43 * (Word8.toInt c div 43) + 20) *)
+        fun qi c = Word8.toInt c div 43
+        fun qc i = 0w20 + Word8.fromInt (43*i)
+        (* fun quantize {red, green, blue} =
+          {red = q red, green = q green, blue = q blue} *)
+        fun quantizeIdx {red, green, blue} =
+          36 * qi red + 6 * qi green + qi blue
+        fun colorOfQuantizeIdx i =
+          let
+            val b = i mod 6
+            val g = (i div 6) mod 6
+            val r = (i div 36) mod 6
+          in
+            {red = qc r, green = qc g, blue = qc b}
+          end
+        val numQuantized = 216
+
+        val dist = Color.approxHumanPerceptionDistance
+
+        fun remap color =
+          let
+            val qIdx = quantizeIdx color
+            val bestQuantized =
+              (dist (color, colorOfQuantizeIdx qIdx), qIdx)
+            val (_, bestIdx) =
+              Util.loop (0, Seq.length histogram) bestQuantized
+              (fn ((bestDist, bestIdx), i) =>
+                let
+                  val d = dist (color, #1 (Seq.nth histogram i))
+                in
+                  if d < bestDist then (d, i+numQuantized) else (bestDist, bestIdx)
+                end)
+          in
+            bestIdx
+          end
+
+        val palette =
+          Seq.tabulate (fn i =>
+            if i < numQuantized then
+              colorOfQuantizeIdx i
+            else
+              #1 (Seq.nth histogram (i - numQuantized)))
+          256
+      in
+        { colors = palette
+        , indices = AS.full (SeqBasis.tabulate 100 (0, n) (remap o Seq.nth data))
+        }
+      end
+
+    (* TODO *)
+    fun codeStream {numColors, indices} =
+      let
+      in
+        Seq.empty ()
+      end
+
+    (* TODO *)
+    fun packCodeStream codes =
+      let
+      in
+        Seq.empty ()
+      end
+  end
 
   fun err msg =
     raise Fail ("GIF: " ^ msg)
