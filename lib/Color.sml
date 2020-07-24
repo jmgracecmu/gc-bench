@@ -6,6 +6,7 @@ struct
   val white: pixel = {red=0w255, green=0w255, blue=0w255}
   val black: pixel = {red=0w0, green=0w0, blue=0w0}
   val red: pixel = {red=0w255, green=0w0, blue=0w0}
+  val blue: pixel = {red=0w0, green=0w0, blue=0w255}
 
   (* hue in range [0,360)
    * saturation in range [0,1]

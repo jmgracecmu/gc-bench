@@ -28,6 +28,8 @@ AdjacencyGraph.sml
 
 Color.sml
 PPM.sml
+ExtraBinIO.sml
+GIF.sml
 NewWaveIO.sml
 Signal.sml
 
