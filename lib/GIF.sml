@@ -3,25 +3,23 @@ sig
   type pixel = Color.pixel
   type image = {height: int, width: int, data: pixel Seq.t}
 
-  (* LZW compression is one of the substeps of generating a GIF.
-   * I've broken it up here into three parts:
-   *   1. choosing a color palette (and renaming each pixel with color indices)
-   *   2. generating a code stream from the color indices
-   *   3. packing the code stream into a bit stream.
-   *)
+  (* A GIF color palette is a table of up to 256 colors, and
+   * function for remapping the colors of an image. *)
+  structure Palette:
+  sig
+    type t = {colors: pixel Seq.t, remap: image -> int Seq.t}
+    val summarize: image -> t
+    val quantized: (int * int * int) -> t
+  end
+
   structure LZW:
   sig
-    (* Simplify colors: choose up to 256 colors, and replace each pixel
-     * with its color index. The color table will be used as the GIF
-     * color table. *)
-    val chooseColors: image -> {colors: pixel Seq.t, indices: int Seq.t}
+    (* First step of compression. Remap an image with the given color
+     * palette, and then generate the LZW-compressed code stream.
+     * This inserts clear- and EOI codes. *)
+    val codeStream: image -> Palette.t -> int Seq.t
 
-    (* Using the color indices given, generate the code stream. Note that
-     * this step inserts clear- and EOI codes. The clear-code is
-     * #numColors, and the EOI code is #(numColors+1). *)
-    val codeStream: {numColors: int, indices: int Seq.t} -> int Seq.t
-
-    (* Final step of LZW compression: pack the code stream into bits with
+    (* Second step of compression: pack the code stream into bits with
      * flexible bit-lengths. This step also inserts sub-block sizes. *)
     val packCodeStream: int Seq.t -> Word8.word Seq.t
   end
@@ -35,24 +33,75 @@ struct
   type pixel = Color.pixel
   type image = {height: int, width: int, data: pixel Seq.t}
 
-  structure LZW =
+  structure Palette =
   struct
 
-    (* GIFs allow at most 256 colors. Here's a simple algorithm to choose 256
-     * colors based on sampling.
-     *
+    type t = {colors: pixel Seq.t, remap: image -> int Seq.t}
+
+    fun makeQuantized (rqq, gqq, bqq) =
+      let
+        fun bucketSize numBuckets =
+          Real.floor (1.0 + 255.0 / Real.fromInt numBuckets)
+        fun bucketShift numBuckets =
+          Word8.fromInt ((255 - (numBuckets-1)*(bucketSize numBuckets)) div 2)
+
+        fun qi nb = fn c => Word8.toInt c div (bucketSize nb)
+        fun qc nb = fn i => bucketShift nb + Word8.fromInt (i * bucketSize nb)
+
+        fun makeQ nb =
+          { numBuckets = nb
+          , channelToIdx = qi nb
+          , channelFromIdx = qc nb
+          }
+
+        val R = makeQ rqq
+        val G = makeQ gqq
+        val B = makeQ bqq
+        val numQuantized = (* this should be at most 256 *)
+          List.foldl op* 1 (List.map #numBuckets [R, G, B])
+
+        fun quantizeIdx {red, green, blue} =
+          (#channelToIdx B blue) +
+          (#channelToIdx G green) * (#numBuckets B) +
+          (#channelToIdx R red) * (#numBuckets B) * (#numBuckets G)
+
+        fun colorOfQuantizeIdx i =
+          let
+            val b = i mod (#numBuckets B)
+            val g = (i div (#numBuckets B)) mod (#numBuckets G)
+            val r = (i div (#numBuckets B) div (#numBuckets G)) mod (#numBuckets R)
+          in
+            { red = #channelFromIdx R r
+            , green = #channelFromIdx G g
+            , blue = #channelFromIdx B b
+            }
+          end
+      in
+        (numQuantized, quantizeIdx, colorOfQuantizeIdx)
+      end
+
+    fun quantized qpackage =
+      let
+        val (numQuantized, quantizeIdx, colorOfQuantizeIdx) =
+          makeQuantized qpackage
+      in
+        { colors = Seq.tabulate colorOfQuantizeIdx numQuantized
+        , remap = fn ({data, ...}: image) =>
+            AS.full (SeqBasis.tabulate 1000 (0, Seq.length data) (fn i =>
+              quantizeIdx (Seq.nth data i)))
+        }
+      end
+
+    (* Here's a simple algorithm to choose 256 colors based on sampling.
      * First, we blindly choose 216 = 6*6*6 quantized colors. This leaves
      * 40 colors which can be chosen to better represent the image. (But of
      * course, we can always fall back on the quantized colors to get an
-     * "okay" result...)
-     *
-     * To pick the 40 representative colors, we sample a bunch of pixels,
-     * deduplicate them and then choose (up to) 40 of the most frequently
-     * occuring within the sample.
-     *
-     * Not exactly the best algorithm, but oh well.
+     * "okay" result...) To pick the 40 representative colors, we sample a
+     * bunch of pixels, deduplicate them and then choose (up to) 40 of the
+     * most frequently occuring within the sample. Not exactly the best
+     * algorithm, but oh well.
      *)
-    fun chooseColors ({data, width, height}: image) =
+    fun summarize ({data, width, height}: image) =
       let
         val n = Seq.length data
 
@@ -88,26 +137,12 @@ struct
          * which totals to 256 colors.
          *)
 
-        (* fun q c = Word8.fromInt (43 * (Word8.toInt c div 43) + 20) *)
-        fun qi c = Word8.toInt c div 43
-        fun qc i = 0w20 + Word8.fromInt (43*i)
-        (* fun quantize {red, green, blue} =
-          {red = q red, green = q green, blue = q blue} *)
-        fun quantizeIdx {red, green, blue} =
-          36 * qi red + 6 * qi green + qi blue
-        fun colorOfQuantizeIdx i =
-          let
-            val b = i mod 6
-            val g = (i div 6) mod 6
-            val r = (i div 36) mod 6
-          in
-            {red = qc r, green = qc g, blue = qc b}
-          end
-        val numQuantized = 216
+        val (numQuantized, quantizeIdx, colorOfQuantizeIdx) =
+          makeQuantized (6, 6, 6)
 
         val dist = Color.approxHumanPerceptionDistance
 
-        fun remap color =
+        fun remapOne color =
           let
             val qIdx = quantizeIdx color
             val bestQuantized =
@@ -124,6 +159,10 @@ struct
             bestIdx
           end
 
+        fun remap {width, height, data} =
+          AS.full (SeqBasis.tabulate 100 (0, Seq.length data)
+                    (remapOne o Seq.nth data))
+
         val palette =
           Seq.tabulate (fn i =>
             if i < numQuantized then
@@ -132,13 +171,16 @@ struct
               #1 (Seq.nth histogram (i - numQuantized)))
           256
       in
-        { colors = palette
-        , indices = AS.full (SeqBasis.tabulate 100 (0, n) (remap o Seq.nth data))
-        }
+        {colors = palette, remap = remap}
       end
 
+  end
+
+  structure LZW =
+  struct
+
     (* TODO *)
-    fun codeStream {numColors, indices} =
+    fun codeStream image (palette as {colors, remap}) =
       let
       in
         Seq.empty ()
