@@ -17,6 +17,8 @@ struct
 
   fun compare (p1, p2) = Int.compare (packInt p1, packInt p2)
 
+  fun equal (p1, p2) = (compare (p1, p2) = EQUAL)
+
   local
     fun c x = Real.fromInt (Word8.toInt x) / 255.0
     fun sq (x: real) = x * x

@@ -33,6 +33,16 @@ struct
   type pixel = Color.pixel
   type image = {height: int, width: int, data: pixel Seq.t}
 
+  fun err msg =
+    raise Fail ("GIF: " ^ msg)
+
+  fun ceilLog2 n =
+    if n <= 0 then
+      err "ceilLog2: expected input at least 1"
+    else
+      (* Util.log2(x) computes 1 + floor(log_2(x)) *)
+      Util.log2 (n-1)
+
   structure Palette =
   struct
 
@@ -179,11 +189,109 @@ struct
   structure LZW =
   struct
 
-    (* TODO *)
+    (* ===================================================================
+     * The code table maps index sequences to codes *)
+    structure CodeTable:
+    sig
+      type t
+      type idx = int
+      type code = int
+
+      val new: int -> t (* `new numColors` *)
+      val getClearCode: t -> code
+      val getEOICode: t -> code
+      val getMinSizeCode: t -> code
+      val insert: idx Seq.t -> t -> t option (* returns NONE when full *)
+      val maybeLookup: idx Seq.t -> t -> code option
+      val lookup: idx Seq.t -> t -> code
+    end =
+    struct
+      type idx = int
+      type code = int
+
+      type t =
+        { numColors: int
+        , nextCode: int
+        , table: (code * idx Seq.t) list (* dumb implementation for now *)
+        }
+
+      fun new numColors =
+        { numColors = numColors
+        , nextCode = Util.boundPow2 numColors + 2
+        , table = List.tabulate (numColors, fn i => (i, Seq.fromList [i]))
+        }
+
+      fun getClearCode ({numColors, ...}: t) =
+        Util.boundPow2 numColors
+
+      fun getEOICode t =
+        getClearCode t + 1
+
+      fun getMinSizeCode ({numColors, ...}: t) =
+        ceilLog2 numColors
+
+      fun insert indices ({numColors, nextCode, table}: t) =
+        if nextCode = 4096 then
+          NONE
+        else
+          SOME { numColors = numColors
+               , nextCode = nextCode+1
+               , table = (nextCode, indices) :: table
+               }
+
+      fun maybeLookup indices ({table, ...}: t) =
+        case List.find (fn (_, s) => Seq.equal op= (indices, s)) table of
+          SOME (code, _) => SOME code
+        | NONE => NONE
+
+      fun lookup indices table =
+        case maybeLookup indices table of
+          SOME code => code
+        | NONE => err ("unexpectedly missing code "
+                       ^ Seq.toString Int.toString indices)
+    end
+    (* =================================================================== *)
+
+    structure T = CodeTable
+
     fun codeStream image (palette as {colors, remap}) =
       let
+        val indices = remap image
+        val numColors = Seq.length colors
+
+        fun slice i j = Seq.subseq indices (i, j-i)
+
+        fun finish stream table =
+          Seq.rev (Seq.fromList (T.getEOICode table :: stream))
+
+        (* the buffer is indices[i,j) *)
+        fun loop stream (table: T.t) (i, j) =
+          if i >= j then
+            finish stream table
+          else if j = Seq.length indices then
+            finish (T.lookup (slice i j) table :: stream) table
+          else
+            case T.maybeLookup (slice i (j+1)) table of
+              SOME _ => loop stream table (i, j+1)
+            | NONE =>
+                case T.insert (slice i (j+1)) table of
+                  SOME table' =>
+                    loop (T.lookup (slice i j) table :: stream) table' (j, j+1)
+                | NONE =>
+                    let
+                      val cc = T.getClearCode table
+                      val sc = T.lookup (slice i j) table
+                      val table' = T.new numColors
+                    in
+                      loop (cc :: sc :: stream) table' (j, j+1)
+                    end
+
+        val initTable = T.new numColors
       in
-        Seq.empty ()
+        if Seq.length indices = 0 then
+          err "empty color index sequence"
+        else
+          loop [T.getClearCode initTable] initTable (0, 1)
       end
 
     (* TODO *)
@@ -193,9 +301,6 @@ struct
         Seq.empty ()
       end
   end
-
-  fun err msg =
-    raise Fail ("GIF: " ^ msg)
 
   fun checkToWord16 thing x =
     if x >= 0 andalso x <= 65535 then
@@ -221,13 +326,6 @@ struct
       orb
       (fromInt colorTableSize andb 0wx7)
     end
-
-  fun ceilLog2 n =
-    if n <= 0 then
-      err "ceilLog2: expected input at least 1"
-    else
-      (* Util.log2(x) computes 1 + floor(log_2(x)) *)
-      Util.log2 (n-1)
 
   fun write path {height, width, data} =
     let

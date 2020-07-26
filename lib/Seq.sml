@@ -7,23 +7,29 @@ struct
 
   val gran = 10000
 
-  fun empty () = AS.full (A.fromList [])
-  fun fromList xs = ArraySlice.full (Array.fromList xs)
-
+  fun nth s i = AS.sub (s, i)
   fun length s = AS.length s
 
-  fun subseq s (i, n) = AS.subslice (s, i, SOME n)
+  fun empty () = AS.full (A.fromList [])
+  fun fromList xs = ArraySlice.full (Array.fromList xs)
+  fun toList s = List.tabulate (length s, nth s)
 
+  fun toString f s =
+    String.concatWith "," (List.map f (toList s))
+
+  fun subseq s (i, n) = AS.subslice (s, i, SOME n)
   fun take s k = subseq s (0, k)
   fun drop s k = subseq s (k, length s - k)
-
-  fun nth s i = AS.sub (s, i)
 
   fun tabulate f n = AS.full (SeqBasis.tabulate gran (0, n) f)
 
   fun map f s = tabulate (fn i => f (nth s i)) (length s)
 
   fun rev s = tabulate (fn i => nth s (length s - i - 1)) (length s)
+
+  fun append (s, t) =
+    tabulate (fn i => if i < length s then nth s i else nth t (i - length s))
+      (length s + length t)
 
   fun iterate f b s =
     SeqBasis.foldl f b (0, length s) (nth s)
