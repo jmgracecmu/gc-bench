@@ -222,7 +222,7 @@ struct
         }
 
       fun insert indices ({nextCode, table}: t) =
-        if nextCode = 4096 then
+        if nextCode = 4095 then
           NONE (* GIF limits the maximum code number to 4095 *)
         else
           SOME { nextCode = nextCode+1
@@ -274,7 +274,7 @@ struct
                       val sc = T.lookup (slice i j) table
                       val table' = T.new numColors
                     in
-                      print ("sending clear at " ^ Int.toString j ^ "\n");
+                      (* print ("sending clear at " ^ Int.toString j ^ "\n"); *)
                       loop table' (clear :: sc :: stream) (j, j+1)
                     end
       in
@@ -289,6 +289,7 @@ struct
         val n = Seq.length codes
         fun code i = Seq.nth codes i
         val clear = Util.boundPow2 numColors
+        val eoi = clear+1
         val minCodeSize = ceilLog2 numColors
         val firstCodeWidth = minCodeSize+1
 
@@ -306,7 +307,7 @@ struct
           AS.full (SeqBasis.filter 2000 (0, n) (fn i => i) (fn i => code i = clear))
         val numClears = Seq.length clears
 
-        val _ = print ("clears: " ^ Seq.toString Int.toString clears ^ "\n")
+        (* val _ = print ("clears: " ^ Seq.toString Int.toString clears ^ "\n") *)
 
         val widths = ForkJoin.alloc n
         val _ = Array.update (widths, 0, firstCodeWidth)
@@ -315,12 +316,14 @@ struct
             val i = 1 + Seq.nth clears c
             val j = if c = numClears-1 then n else 1 + Seq.nth clears (c+1)
 
-            fun nextCodeGenerated k =
-              (clear+2) + k - i
+            (* max code in table, up to (but not including) index k *)
+            fun currentMaxCode k =
+              k - i  (* num outputs since the table was cleared *)
+              + eoi  (* the max code immediately after clearing the table *)
           in
             Util.loop (i, j) firstCodeWidth (fn (currWidth, k) =>
               ( Array.update (widths, k, currWidth)
-              ; if nextCodeGenerated k = Util.pow2 currWidth then
+              ; if currentMaxCode (k+1) = Util.pow2 currWidth then
                   currWidth+1
                 else
                   currWidth
@@ -379,7 +382,7 @@ struct
           let
             val size = if i < numBlocks-1 then 255 else packedSize - 255*i
           in
-            print ("block " ^ Int.toString i ^ " of size " ^ Int.toString size ^ "\n");
+            (* print ("block " ^ Int.toString i ^ " of size " ^ Int.toString size ^ "\n"); *)
             Array.update (output, 256*i, Word8.fromInt size);
             Util.for (0, size) (fn j =>
               Array.update (output, 256*i + 1 + j, Seq.nth packed (255*i + j)))
