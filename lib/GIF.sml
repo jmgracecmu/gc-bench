@@ -20,8 +20,9 @@ sig
     val codeStream: image -> Palette.t -> int Seq.t
 
     (* Second step of compression: pack the code stream into bits with
-     * flexible bit-lengths. This step also inserts sub-block sizes. *)
-    val packCodeStream: int Seq.t -> Word8.word Seq.t
+     * flexible bit-lengths. This step also inserts sub-block sizes.
+     * The first argument is the number of colors. *)
+    val packCodeStream: int -> int Seq.t -> Word8.word Seq.t
   end
 
   val write: string -> image -> unit
@@ -35,6 +36,9 @@ struct
 
   fun err msg =
     raise Fail ("GIF: " ^ msg)
+
+  fun stderr msg =
+    (TextIO.output (TextIO.stdErr, msg); TextIO.output (TextIO.stdErr, "\n"))
 
   fun ceilLog2 n =
     if n <= 0 then
@@ -198,9 +202,6 @@ struct
       type code = int
 
       val new: int -> t (* `new numColors` *)
-      val getClearCode: t -> code
-      val getEOICode: t -> code
-      val getMinSizeCode: t -> code
       val insert: idx Seq.t -> t -> t option (* returns NONE when full *)
       val maybeLookup: idx Seq.t -> t -> code option
       val lookup: idx Seq.t -> t -> code
@@ -210,32 +211,21 @@ struct
       type code = int
 
       type t =
-        { numColors: int
-        , nextCode: int
+        { nextCode: int
         , table: (code * idx Seq.t) list (* dumb implementation for now *)
         }
 
       fun new numColors =
-        { numColors = numColors
-        , nextCode = Util.boundPow2 numColors + 2
-        , table = List.tabulate (numColors, fn i => (i, Seq.fromList [i]))
+        { nextCode = Util.boundPow2 numColors + 2
+        , table = List.tabulate (Util.boundPow2 numColors,
+            fn i => (i, Seq.fromList [i]))
         }
 
-      fun getClearCode ({numColors, ...}: t) =
-        Util.boundPow2 numColors
-
-      fun getEOICode t =
-        getClearCode t + 1
-
-      fun getMinSizeCode ({numColors, ...}: t) =
-        ceilLog2 numColors
-
-      fun insert indices ({numColors, nextCode, table}: t) =
+      fun insert indices ({nextCode, table}: t) =
         if nextCode = 4096 then
-          NONE
+          NONE (* GIF limits the maximum code number to 4095 *)
         else
-          SOME { numColors = numColors
-               , nextCode = nextCode+1
+          SOME { nextCode = nextCode+1
                , table = (nextCode, indices) :: table
                }
 
@@ -257,48 +247,147 @@ struct
     fun codeStream image (palette as {colors, remap}) =
       let
         val indices = remap image
-        val numColors = Seq.length colors
-
         fun slice i j = Seq.subseq indices (i, j-i)
 
-        fun finish stream table =
-          Seq.rev (Seq.fromList (T.getEOICode table :: stream))
+        val numColors = Seq.length colors
+        val clear = Util.boundPow2 numColors
+        val eoi = clear + 1
+
+        fun finish stream =
+          Seq.rev (Seq.fromList (eoi :: stream))
 
         (* the buffer is indices[i,j) *)
-        fun loop stream (table: T.t) (i, j) =
+        fun loop (table: T.t) stream (i, j) =
           if i >= j then
-            finish stream table
+            finish stream
           else if j = Seq.length indices then
-            finish (T.lookup (slice i j) table :: stream) table
+            finish (T.lookup (slice i j) table :: stream)
           else
             case T.maybeLookup (slice i (j+1)) table of
-              SOME _ => loop stream table (i, j+1)
+              SOME _ => loop table stream (i, j+1)
             | NONE =>
                 case T.insert (slice i (j+1)) table of
                   SOME table' =>
-                    loop (T.lookup (slice i j) table :: stream) table' (j, j+1)
+                    loop table' (T.lookup (slice i j) table :: stream) (j, j+1)
                 | NONE =>
                     let
-                      val cc = T.getClearCode table
                       val sc = T.lookup (slice i j) table
                       val table' = T.new numColors
                     in
-                      loop (cc :: sc :: stream) table' (j, j+1)
+                      print ("sending clear at " ^ Int.toString j ^ "\n");
+                      loop table' (clear :: sc :: stream) (j, j+1)
                     end
-
-        val initTable = T.new numColors
       in
         if Seq.length indices = 0 then
           err "empty color index sequence"
         else
-          loop [T.getClearCode initTable] initTable (0, 1)
+          loop (T.new numColors) [clear] (0, 1)
       end
 
-    (* TODO *)
-    fun packCodeStream codes =
+    fun packCodeStream numColors codes =
       let
+        val n = Seq.length codes
+        fun code i = Seq.nth codes i
+        val clear = Util.boundPow2 numColors
+        val minCodeSize = ceilLog2 numColors
+        val firstCodeWidth = minCodeSize+1
+
+        (* Begin by calculating the bit width of each code. Since we know bit
+         * widths are reset at each clear code, we can parallelize by splitting
+         * the codestream into segments delimited by clear codes and processing
+         * the segments in parallel.
+         *
+         * Within a segment, the width is increased every time we generated
+         * a new code with power-of-two width. Every symbol in the code stream
+         * corresponds to a newly generated code.
+         *)
+
+        val clears =
+          AS.full (SeqBasis.filter 2000 (0, n) (fn i => i) (fn i => code i = clear))
+        val numClears = Seq.length clears
+
+        val _ = print ("clears: " ^ Seq.toString Int.toString clears ^ "\n")
+
+        val widths = ForkJoin.alloc n
+        val _ = Array.update (widths, 0, firstCodeWidth)
+        val _ = ForkJoin.parfor 1 (0, numClears) (fn c =>
+          let
+            val i = 1 + Seq.nth clears c
+            val j = if c = numClears-1 then n else 1 + Seq.nth clears (c+1)
+
+            fun nextCodeGenerated k =
+              (clear+2) + k - i
+          in
+            Util.loop (i, j) firstCodeWidth (fn (currWidth, k) =>
+              ( Array.update (widths, k, currWidth)
+              ; if nextCodeGenerated k = Util.pow2 currWidth then
+                  currWidth+1
+                else
+                  currWidth
+              ));
+            ()
+          end)
+        val widths = AS.full widths
+
+        val totalBitWidth = Seq.reduce op+ 0 widths
+        val packedSize = Util.ceilDiv totalBitWidth 8
+
+        val packed = ForkJoin.alloc packedSize
+
+        fun flushBuffer (oi, buffer, used) =
+          if used < 8 then
+            (oi, buffer, used)
+          else
+            ( Array.update (packed, oi, Word8.fromLarge buffer)
+            ; flushBuffer (oi+1, LargeWord.>> (buffer, 0w8), used-8)
+            )
+
+        (* Input index range [ci,cj)
+         * Output index range [oi, oj)
+         * `buffer` is a partially filled byte that has not yet been written
+         * to the packed. `used` (0 to 7) is how much of that byte is
+         * used. *)
+        fun pack (oi, oj) (ci, cj) (buffer: LargeWord.word) (used: int) =
+          if ci >= cj then
+            (if oi >= oj then
+              ()
+            else if oi = oj-1 then
+              Array.update (packed, oi, Word8.fromLarge buffer)
+            else
+              err "cannot fill rest of packed region")
+          else
+            let
+              val thisCode = code ci
+              val thisWidth = Seq.nth widths ci
+              val buffer' =
+                LargeWord.orb (buffer,
+                  LargeWord.<< (LargeWord.fromInt thisCode, Word.fromInt used))
+              val used' = used + thisWidth
+              val (oi', buffer'', used'') = flushBuffer (oi, buffer', used')
+            in
+              pack (oi', oj) (ci+1, cj) buffer'' used''
+            end
+
+        val _ = pack (0, packedSize) (0, n) 0w0 0
+        val packed = AS.full packed
+
+        val numBlocks = Util.ceilDiv packedSize 255
+
+        val output = ForkJoin.alloc (packedSize + numBlocks + 1)
       in
-        Seq.empty ()
+        ForkJoin.parfor 10 (0, numBlocks) (fn i =>
+          let
+            val size = if i < numBlocks-1 then 255 else packedSize - 255*i
+          in
+            print ("block " ^ Int.toString i ^ " of size " ^ Int.toString size ^ "\n");
+            Array.update (output, 256*i, Word8.fromInt size);
+            Util.for (0, size) (fn j =>
+              Array.update (output, 256*i + 1 + j, Seq.nth packed (255*i + j)))
+          end);
+
+        Array.update (output, packedSize + numBlocks, 0w0);
+
+        AS.full output
       end
   end
 
@@ -327,24 +416,49 @@ struct
       (fromInt colorTableSize andb 0wx7)
     end
 
-  fun write path {height, width, data} =
+  (* val colors =
+    Seq.tabulate (fn i =>
+      if i < 200 then Color.black
+      else if i = 200 then Color.white
+      else if i = 201 then Color.red
+      else if i = 202 then Color.blue
+      else Color.black) 204
+
+  fun remap (image: PPM.image) =
+    Seq.map (fn px =>
+      if Color.equal (px, Color.white) then 200
+      else if Color.equal (px, Color.red) then 201
+      else if Color.equal (px, Color.blue) then 202
+      else 203) (#data image) *)
+
+  fun write path image =
     let
+      val palette = Palette.quantized (6,7,6)
+      val numberOfColors = Seq.length (#colors palette)
+      (* val _ = print ("number of colors: " ^ Int.toString numberOfColors ^ "\n") *)
+      val codes = LZW.codeStream image palette
+      (* val _ = print ("codes: " ^ Seq.toString Int.toString codes ^ "\n") *)
+
+      fun wtos w =
+        let val s = Word8.toString w
+        in if String.size s = 1 then "0" ^ s else s
+        end
+
+      val bytes = LZW.packCodeStream numberOfColors codes
+
+      (* val _ = print ("generated: " ^ String.translate (fn #"," => " " | c => Char.toString c) (Seq.toString wtos bytes) ^ "\n") *)
+
+
       val file = BinIO.openOut path
 
-      val width16 = checkToWord16 "width" width
-      val height16 = checkToWord16 "height" height
+      val width16 = checkToWord16 "width" (#width image)
+      val height16 = checkToWord16 "height" (#height image)
 
       val w8 = ExtraBinIO.w8 file
       val w32b = ExtraBinIO.w32b file
       val w32l = ExtraBinIO.w32l file
       val w16l = ExtraBinIO.w16l file
       val wrgb = ExtraBinIO.wrgb file
-
-      (* some sample data
-       * TODO: actually generate this from input... *)
-      val width16 = 0w10;
-      val height16 = 0w10;
-      val numberOfColors = 4
     in
       (* ==========================
        * "GIF89a" header: 6 bytes
@@ -374,10 +488,16 @@ struct
        * global color table
        *)
 
-      wrgb Color.white; (* just some sample data. TODO generate from input! *)
+      Util.for (0, numberOfColors) (fn i =>
+        wrgb (Seq.nth (#colors palette) i));
+
+      Util.for (numberOfColors, Util.boundPow2 numberOfColors) (fn i =>
+        wrgb Color.black);
+
+      (* wrgb Color.white;
       wrgb Color.red;
       wrgb Color.blue;
-      wrgb Color.black;
+      wrgb Color.black; *)
 
       (* ==================================
        * graphics control extension.
@@ -404,12 +524,15 @@ struct
        * compressed image data
        *)
 
-      (* some sample data *)
-      List.app (w8 o Word8.fromInt)
+      w8 (Word8.fromInt (ceilLog2 numberOfColors));
+      Util.for (0, Seq.length bytes) (fn i =>
+        w8 (Seq.nth bytes i));
+
+      (* List.app (w8 o Word8.fromInt)
       [ 0x02, 0x16, 0x8C, 0x2D, 0x99, 0x87, 0x2A, 0x1C, 0xDC, 0x33, 0xA0, 0x02
       , 0x75, 0xEC, 0x95, 0xFA, 0xA8, 0xDE, 0x60, 0x8C, 0x04, 0x91, 0x4C, 0x01
       , 0x00
-      ];
+      ]; *)
 
       (* ================================
        * trailer
