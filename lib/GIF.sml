@@ -25,6 +25,11 @@ sig
     val packCodeStream: int -> int Seq.t -> Word8.word Seq.t
   end
 
+  (* Write many images as an animation. All images must be the same dimension. *)
+  val writeMany: string
+              -> {width: int, height: int, numImages: int, getImage: int -> image}
+              -> unit
+
   val write: string -> image -> unit
 end =
 struct
@@ -307,8 +312,6 @@ struct
           AS.full (SeqBasis.filter 2000 (0, n) (fn i => i) (fn i => code i = clear))
         val numClears = Seq.length clears
 
-        (* val _ = print ("clears: " ^ Seq.toString Int.toString clears ^ "\n") *)
-
         val widths = ForkJoin.alloc n
         val _ = Array.update (widths, 0, firstCodeWidth)
         val _ = ForkJoin.parfor 1 (0, numClears) (fn c =>
@@ -373,16 +376,13 @@ struct
 
         val _ = pack (0, packedSize) (0, n) 0w0 0
         val packed = AS.full packed
-
         val numBlocks = Util.ceilDiv packedSize 255
-
         val output = ForkJoin.alloc (packedSize + numBlocks + 1)
       in
         ForkJoin.parfor 10 (0, numBlocks) (fn i =>
           let
             val size = if i < numBlocks-1 then 255 else packedSize - 255*i
           in
-            (* print ("block " ^ Int.toString i ^ " of size " ^ Int.toString size ^ "\n"); *)
             Array.update (output, 256*i, Word8.fromInt size);
             Util.for (0, size) (fn j =>
               Array.update (output, 256*i + 1 + j, Seq.nth packed (255*i + j)))
@@ -393,6 +393,8 @@ struct
         AS.full output
       end
   end
+
+  (* ====================================================================== *)
 
   fun checkToWord16 thing x =
     if x >= 0 andalso x <= 65535 then
@@ -419,44 +421,29 @@ struct
       (fromInt colorTableSize andb 0wx7)
     end
 
-  (* val colors =
-    Seq.tabulate (fn i =>
-      if i < 200 then Color.black
-      else if i = 200 then Color.white
-      else if i = 201 then Color.red
-      else if i = 202 then Color.blue
-      else Color.black) 204
-
-  fun remap (image: PPM.image) =
-    Seq.map (fn px =>
-      if Color.equal (px, Color.white) then 200
-      else if Color.equal (px, Color.red) then 201
-      else if Color.equal (px, Color.blue) then 202
-      else 203) (#data image) *)
-
-  fun write path image =
+  fun writeMany path {width, height, numImages, getImage} =
+    if numImages <= 0 then
+      err "Must be at least one image"
+    else
     let
+      val width16 = checkToWord16 "width" width
+      val height16 = checkToWord16 "height" height
+
       val palette = Palette.quantized (6,7,6)
       val numberOfColors = Seq.length (#colors palette)
-      (* val _ = print ("number of colors: " ^ Int.toString numberOfColors ^ "\n") *)
-      val codes = LZW.codeStream image palette
-      (* val _ = print ("codes: " ^ Seq.toString Int.toString codes ^ "\n") *)
 
-      fun wtos w =
-        let val s = Word8.toString w
-        in if String.size s = 1 then "0" ^ s else s
-        end
-
-      val bytes = LZW.packCodeStream numberOfColors codes
-
-      (* val _ = print ("generated: " ^ String.translate (fn #"," => " " | c => Char.toString c) (Seq.toString wtos bytes) ^ "\n") *)
-
+      val imageData =
+        AS.full (SeqBasis.tabulate 1 (0, numImages) (fn i =>
+          let
+            val img = getImage i
+          in
+            if #width img <> width orelse #height img <> height then
+              err "Not all images the same dimensions"
+            else
+              LZW.packCodeStream numberOfColors (LZW.codeStream img palette)
+          end))
 
       val file = BinIO.openOut path
-
-      val width16 = checkToWord16 "width" (#width image)
-      val height16 = checkToWord16 "height" (#height image)
-
       val w8 = ExtraBinIO.w8 file
       val w32b = ExtraBinIO.w32b file
       val w32l = ExtraBinIO.w32l file
@@ -497,45 +484,57 @@ struct
       Util.for (numberOfColors, Util.boundPow2 numberOfColors) (fn i =>
         wrgb Color.black);
 
-      (* wrgb Color.white;
-      wrgb Color.red;
-      wrgb Color.blue;
-      wrgb Color.black; *)
+      (* ==================================
+       * application extension, for looping
+       * OPTIONAL. skip it if there is only one image.
+       *)
+
+      if numImages = 1 then () else
+      List.app (w8 o Word8.fromInt)
+      [ 0x21, 0xFF, 0x0B, 0x4E, 0x45, 0x54, 0x53, 0x43, 0x41, 0x50, 0x45, 0x32
+      , 0x2E, 0x30, 0x03, 0x01, 0x00, 0x00, 0x00
+      ];
 
       (* ==================================
-       * graphics control extension.
-       * OPTIONAL, so for now, skip it.
+       * IMAGE DATA
        *)
 
+      Util.for (0, numImages) (fn i =>
+        let
+          val bytes = Seq.nth imageData i
+        in
+          (* ==========================
+           * graphics control extension.
+           * OPTIONAL. only needed if
+           * doing animation.
+           *)
 
-      (* ==================================
-       * image descriptor
-       * each image has one!
-       *)
+          if numImages = 1 then () else
+          List.app (w8 o Word8.fromInt)
+          [ 0x21, 0xF9, 0x04, 0x04, 0x64, 0x00, 0x00, 0x00 ];
 
-      w8 0wx2C; (* image separator *)
+          (* ==========================
+           * image descriptor
+           *)
 
-      w16l 0w0;  (* image left *)
-      w16l 0w0;  (* image top *)
+          w8 0wx2C; (* image separator *)
 
-      w16l width16;  (* image width *)
-      w16l height16; (* image height *)
+          w16l 0w0;  (* image left *)
+          w16l 0w0;  (* image top *)
 
-      w8 0w0;   (* packed local color table descriptor (NONE FOR NOW) *)
+          w16l width16;  (* image width *)
+          w16l height16; (* image height *)
 
-      (* =================================
-       * compressed image data
-       *)
+          w8 0w0;   (* packed local color table descriptor (NONE FOR NOW) *)
 
-      w8 (Word8.fromInt (ceilLog2 numberOfColors));
-      Util.for (0, Seq.length bytes) (fn i =>
-        w8 (Seq.nth bytes i));
+          (* ===========================
+           * compressed image data
+           *)
 
-      (* List.app (w8 o Word8.fromInt)
-      [ 0x02, 0x16, 0x8C, 0x2D, 0x99, 0x87, 0x2A, 0x1C, 0xDC, 0x33, 0xA0, 0x02
-      , 0x75, 0xEC, 0x95, 0xFA, 0xA8, 0xDE, 0x60, 0x8C, 0x04, 0x91, 0x4C, 0x01
-      , 0x00
-      ]; *)
+          w8 (Word8.fromInt (ceilLog2 numberOfColors));
+          Util.for (0, Seq.length bytes) (fn i =>
+            w8 (Seq.nth bytes i))
+        end);
 
       (* ================================
        * trailer
@@ -545,4 +544,12 @@ struct
 
       BinIO.closeOut file
     end
+
+  fun write path img =
+    writeMany path
+      { width = #width img
+      , height = #height img
+      , numImages = 1
+      , getImage = (fn _ => img)
+      }
 end
