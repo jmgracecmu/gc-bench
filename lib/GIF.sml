@@ -202,43 +202,47 @@ struct
       type code = int
 
       val new: int -> t (* `new numColors` *)
-      val insert: idx Seq.t -> t -> t option (* returns NONE when full *)
-      val maybeLookup: idx Seq.t -> t -> code option
-      val lookup: idx Seq.t -> t -> code
+      val clear: t -> unit
+      val insert: (code * idx) -> t -> bool (* returns false when full *)
+      val maybeLookup: (code * idx) -> t -> code option
     end =
     struct
       type idx = int
       type code = int
 
+      exception Invalid
+
       type t =
-        { nextCode: int
-        , table: (code * idx Seq.t) list (* dumb implementation for now *)
+        { nextCode: int ref
+        , numColors: int
+        , table: code array
         }
 
       fun new numColors =
-        { nextCode = Util.boundPow2 numColors + 2
-        , table = List.tabulate (Util.boundPow2 numColors,
-            fn i => (i, Seq.fromList [i]))
+        { nextCode = ref (Util.boundPow2 numColors + 2)
+        , numColors = numColors
+        , table = Array.array (4096 * numColors, ~1)
         }
 
-      fun insert indices ({nextCode, table}: t) =
-        if nextCode = 4095 then
-          NONE (* GIF limits the maximum code number to 4095 *)
+      fun clear {nextCode, numColors, table} =
+        ( Util.for (0, Array.length table) (fn i => Array.update (table, i, ~1))
+        ; nextCode := Util.boundPow2 numColors + 2
+        )
+
+      fun insert (code, idx) ({nextCode, numColors, table}: t) =
+        if !nextCode = 4095 then
+          false (* GIF limits the maximum code number to 4095 *)
         else
-          SOME { nextCode = nextCode+1
-               , table = (nextCode, indices) :: table
-               }
+          ( Array.update (table, code*numColors + idx, !nextCode)
+          ; nextCode := !nextCode + 1
+          ; true
+          )
 
-      fun maybeLookup indices ({table, ...}: t) =
-        case List.find (fn (_, s) => Seq.equal op= (indices, s)) table of
-          SOME (code, _) => SOME code
-        | NONE => NONE
+      fun maybeLookup (code, idx) ({table, numColors, ...}: t) =
+        case Array.sub (table, code*numColors + idx) of
+          ~1 => NONE
+        | c => SOME c
 
-      fun lookup indices table =
-        case maybeLookup indices table of
-          SOME code => code
-        | NONE => err ("unexpectedly missing code "
-                       ^ Seq.toString Int.toString indices)
     end
     (* =================================================================== *)
 
@@ -246,42 +250,38 @@ struct
 
     fun codeStream image (palette as {colors, remap}) =
       let
-        val indices = remap image
-        fun slice i j = Seq.subseq indices (i, j-i)
+        val colorIndices = remap image
+        fun colorIdx i = Seq.nth colorIndices i
 
         val numColors = Seq.length colors
         val clear = Util.boundPow2 numColors
         val eoi = clear + 1
 
+        val table = T.new numColors
+
         fun finish stream =
           Seq.rev (Seq.fromList (eoi :: stream))
 
-        (* the buffer is indices[i,j) *)
-        fun loop (table: T.t) stream (i, j) =
-          if i >= j then
-            finish stream
-          else if j = Seq.length indices then
-            finish (T.lookup (slice i j) table :: stream)
+        (* The buffer is implicit, represented instead by currentCode
+         * i is the next index into `colorIndices` *)
+        fun loop stream currentCode i =
+          if i >= Seq.length colorIndices then
+            finish (currentCode :: stream)
           else
-            case T.maybeLookup (slice i (j+1)) table of
-              SOME _ => loop table stream (i, j+1)
+            case T.maybeLookup (currentCode, colorIdx i) table of
+              SOME code => loop stream code (i+1)
             | NONE =>
-                case T.insert (slice i (j+1)) table of
-                  SOME table' =>
-                    loop table' (T.lookup (slice i j) table :: stream) (j, j+1)
-                | NONE =>
-                    let
-                      val sc = T.lookup (slice i j) table
-                      val table' = T.new numColors
-                    in
-                      (* print ("sending clear at " ^ Int.toString j ^ "\n"); *)
-                      loop table' (clear :: sc :: stream) (j, j+1)
-                    end
+                if T.insert (currentCode, colorIdx i) table then
+                  loop (currentCode :: stream) (colorIdx i) (i+1)
+                else
+                  ( T.clear table
+                  ; loop (clear :: currentCode :: stream) (colorIdx i) (i+1)
+                  )
       in
-        if Seq.length indices = 0 then
+        if Seq.length colorIndices = 0 then
           err "empty color index sequence"
         else
-          loop (T.new numColors) [clear] (0, 1)
+          loop [clear] (colorIdx 0) 1
       end
 
     fun packCodeStream numColors codes =
