@@ -26,7 +26,8 @@ sig
   end
 
   (* Write many images as an animation. All images must be the same dimension. *)
-  val writeMany: string
+  val writeMany: string  (* output path *)
+              -> int     (* microsecond delay between images *)
               -> {width: int, height: int, numImages: int, getImage: int -> image}
               -> unit
 
@@ -421,7 +422,7 @@ struct
       (fromInt colorTableSize andb 0wx7)
     end
 
-  fun writeMany path {width, height, numImages, getImage} =
+  fun writeMany path delay {width, height, numImages, getImage} =
     if numImages <= 0 then
       err "Must be at least one image"
     else
@@ -510,8 +511,11 @@ struct
            *)
 
           if numImages = 1 then () else
-          List.app (w8 o Word8.fromInt)
-          [ 0x21, 0xF9, 0x04, 0x04, 0x64, 0x00, 0x00, 0x00 ];
+          ( List.app (w8 o Word8.fromInt) [ 0x21, 0xF9, 0x04, 0x04 ]
+          ; w16l (Word16.fromInt delay)
+          ; w8 0w0
+          ; w8 0w0
+          );
 
           (* ==========================
            * image descriptor
@@ -546,7 +550,7 @@ struct
     end
 
   fun write path img =
-    writeMany path
+    writeMany path 0
       { width = #width img
       , height = #height img
       , numImages = 1
