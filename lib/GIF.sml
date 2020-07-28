@@ -10,14 +10,20 @@ sig
     type t = {colors: pixel Seq.t, remap: image -> int Seq.t}
     val summarize: image -> t
     val quantized: (int * int * int) -> t
+    val remapColor: t -> pixel -> int
   end
 
   structure LZW:
   sig
     (* First step of compression. Remap an image with the given color
      * palette, and then generate the LZW-compressed code stream.
-     * This inserts clear- and EOI codes. *)
-    val codeStream: image -> Palette.t -> int Seq.t
+     * This inserts clear- and EOI codes.
+     *
+     * arguments are
+     *   1. number of colors, and
+     *   2. color indices (from palette remap)
+     *)
+    val codeStream: int -> int Seq.t -> int Seq.t
 
     (* Second step of compression: pack the code stream into bits with
      * flexible bit-lengths. This step also inserts sub-block sizes.
@@ -28,7 +34,8 @@ sig
   (* Write many images as an animation. All images must be the same dimension. *)
   val writeMany: string  (* output path *)
               -> int     (* microsecond delay between images *)
-              -> {width: int, height: int, numImages: int, getImage: int -> image}
+              -> Palette.t
+              -> {width: int, height: int, numImages: int, getImage: int -> int Seq.t}
               -> unit
 
   val write: string -> image -> unit
@@ -57,6 +64,9 @@ struct
   struct
 
     type t = {colors: pixel Seq.t, remap: image -> int Seq.t}
+
+    fun remapColor ({remap, ...}: t) px =
+      Seq.nth (remap {width=1, height=1, data=Seq.fromList [px]}) 0
 
     fun makeQuantized (rqq, gqq, bqq) =
       let
@@ -332,13 +342,10 @@ struct
     structure T = CodeTable
     structure DS = DynArray
 
-    fun codeStream image (palette as {colors, remap}) =
+    fun codeStream numColors colorIndices =
       let
-        val (colorIndices, tm) = Util.getTime (fn _ => remap image)
-        (* val _ = print ("remap in " ^ Time.fmt 4 tm ^ "s\n") *)
         fun colorIdx i = Seq.nth colorIndices i
 
-        val numColors = Seq.length colors
         val clear = Util.boundPow2 numColors
         val eoi = clear + 1
 
@@ -370,13 +377,13 @@ struct
           loop (DS.push clear (DS.new ())) (colorIdx 0) 1
       end
 
-    val codeStream = fn image => fn palette =>
+    (* val codeStream = fn image => fn palette =>
       let
         val (result, tm) = Util.getTime (fn _ => codeStream image palette)
       in
         print ("computed codeStream in " ^ Time.fmt 4 tm ^ "s\n");
         result
-      end
+      end *)
 
     fun packCodeStream numColors codes =
       let
@@ -511,7 +518,7 @@ struct
       (fromInt colorTableSize andb 0wx7)
     end
 
-  fun writeMany path delay {width, height, numImages, getImage} =
+  fun writeMany path delay palette {width, height, numImages, getImage} =
     if numImages <= 0 then
       err "Must be at least one image"
     else
@@ -519,21 +526,25 @@ struct
       val width16 = checkToWord16 "width" width
       val height16 = checkToWord16 "height" height
 
-      val palette = Palette.quantized (6,7,6)
       val numberOfColors = Seq.length (#colors palette)
+
+      val _ =
+        if numberOfColors <= 256 then ()
+        else err "Must have at most 256 colors in the palette"
 
       val (imageData, tm) = Util.getTime (fn _ =>
         AS.full (SeqBasis.tabulate 1 (0, numImages) (fn i =>
           let
             val img = getImage i
           in
-            if #width img <> width orelse #height img <> height then
-              err "Not all images the same dimensions"
+            if Seq.length img <> height * width then
+              err "Not all images are the right dimensions"
             else
-              LZW.packCodeStream numberOfColors (LZW.codeStream img palette)
+              LZW.packCodeStream numberOfColors
+                (LZW.codeStream numberOfColors img)
           end)))
 
-      val _ = print ("compressed image data in " ^ Time.fmt 4 tm ^ "s\n")
+      (* val _ = print ("compressed image data in " ^ Time.fmt 4 tm ^ "s\n") *)
 
       val file = BinIO.openOut path
       val w8 = ExtraBinIO.w8 file
@@ -641,10 +652,15 @@ struct
     end
 
   fun write path img =
-    writeMany path 0
-      { width = #width img
-      , height = #height img
-      , numImages = 1
-      , getImage = (fn _ => img)
-      }
+    let
+      val palette = Palette.quantized (6,7,6)
+      val img' = #remap palette img
+    in
+      writeMany path 0 palette
+        { width = #width img
+        , height = #height img
+        , numImages = 1
+        , getImage = (fn _ => img')
+        }
+    end
 end
