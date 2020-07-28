@@ -144,7 +144,7 @@ struct
       let
         val n = Seq.length data
 
-        val dist = Color.distance
+        val dist = Color.sqDistance
 
         val dimBits = 3
         val dim = Util.pow2 dimBits
@@ -174,10 +174,10 @@ struct
           let
             val (r, g, b) = chanIdxs color
           in
-            Util.loop (bounds r) Real.posInf (fn (md, r) =>
+            Util.loop (bounds r) (valOf Int.maxInt) (fn (md, r) =>
             Util.loop (bounds g) md (fn (md, g) =>
             Util.loop (bounds b) md (fn (md, b) =>
-              List.foldl (fn (c, md) => Real.min (md, dist (c, color)))
+              List.foldl (fn (c, md) => Int.min (md, dist (c, color)))
                 md
                 (Array.sub (table, pack (r, g, b)) ))))
           end
@@ -194,7 +194,7 @@ struct
             fun chooseMax ((c1, dc1), (c2, dc2)) =
               if dc1 > dc2 then (c1, dc1) else (c2, dc2)
             val (c, _) =
-              Util.loop (0, candidatesSize) (Color.black, Real.negInf)
+              Util.loop (0, candidatesSize) (Color.black, ~1)
               (fn (best, j) => chooseMax (best, minDist' (sample (i+j))))
           in
             insert c;
@@ -230,7 +230,7 @@ struct
               if dc1 <= dc2 then (c1, dc1) else (c2, dc2)
 
             val (i, _) =
-              Util.loop (bounds r) (~1, Real.posInf) (fn (md, r) =>
+              Util.loop (bounds r) (~1, valOf Int.maxInt) (fn (md, r) =>
               Util.loop (bounds g) md (fn (md, g) =>
               Util.loop (bounds b) md (fn (md, b) =>
                 let
