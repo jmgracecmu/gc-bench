@@ -132,10 +132,7 @@ struct
        * (gradient values)
        *)
 
-      fun c x = Real.fromInt (Word8.toInt x) / 255.0
-      fun sq (x: real) = x * x
-      fun d {red=r1, green=g1, blue=b1} {red=r2, green=g2, blue=b2} =
-        sq (c r2 - c r1) + sq (c g2 - c g1) + sq (c b2 - c b1)
+      fun d p1 p2 = Color.distance (p1, p2)
 
       fun energy idx (i, j) =
         let
