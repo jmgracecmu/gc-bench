@@ -8,8 +8,16 @@ sig
   structure Palette:
   sig
     type t = {colors: pixel Seq.t, remap: image -> int Seq.t}
-    val summarize: image -> t
+
+    (* Selects a set of "well-spaced" colors sampled from the image.
+     * The first argument is a list of required colors, that must be
+     * included in the palette. Second number is desired palette size.
+     *)
+    val summarize: pixel list -> int -> image -> t
+
+    (* Selects a quantized color palette. *)
     val quantized: (int * int * int) -> t
+
     val remapColor: t -> pixel -> int
   end
 
@@ -90,10 +98,13 @@ struct
         val numQuantized = (* this should be at most 256 *)
           List.foldl op* 1 (List.map #numBuckets [R, G, B])
 
-        fun quantizeIdx {red, green, blue} =
-          (#channelToIdx B blue) +
-          (#channelToIdx G green) * (#numBuckets B) +
-          (#channelToIdx R red) * (#numBuckets B) * (#numBuckets G)
+        fun channelIndices {red, green, blue} =
+          (#channelToIdx R red, #channelToIdx G green, #channelToIdx B blue)
+
+        fun packChannelIndices (r, g, b) =
+          b +
+          g * (#numBuckets B) +
+          r * (#numBuckets B) * (#numBuckets G)
 
         fun colorOfQuantizeIdx i =
           let
@@ -107,99 +118,136 @@ struct
             }
           end
       in
-        (numQuantized, quantizeIdx, colorOfQuantizeIdx)
+        (numQuantized, channelIndices, packChannelIndices, colorOfQuantizeIdx)
       end
 
     fun quantized qpackage =
       let
-        val (numQuantized, quantizeIdx, colorOfQuantizeIdx) =
+        val (numQuantized, channelIndices, pack, colorOfQuantizeIdx) =
           makeQuantized qpackage
       in
         { colors = Seq.tabulate colorOfQuantizeIdx numQuantized
         , remap = fn ({data, ...}: image) =>
             AS.full (SeqBasis.tabulate 1000 (0, Seq.length data) (fn i =>
-              quantizeIdx (Seq.nth data i)))
+              pack (channelIndices (Seq.nth data i))))
         }
       end
 
-    (* Here's a simple algorithm to choose 256 colors based on sampling.
-     * First, we blindly choose 216 = 6*6*6 quantized colors. This leaves
-     * 40 colors which can be chosen to better represent the image. (But of
-     * course, we can always fall back on the quantized colors to get an
-     * "okay" result...) To pick the 40 representative colors, we sample a
-     * bunch of pixels, deduplicate them and then choose (up to) 40 of the
-     * most frequently occuring within the sample. Not exactly the best
-     * algorithm, but oh well.
-     *)
-    fun summarize ({data, width, height}: image) =
+    fun summarize requiredColors paletteSize ({data, width, height}: image) =
+      if paletteSize <= 0 then
+        err "summarize: palette size must be at least 1"
+      else if paletteSize > 256 then
+        err "summarize: max palette size is 256"
+      else if List.length requiredColors > paletteSize then
+        err "summarize: Too many required colors"
+      else
       let
         val n = Seq.length data
 
-        val sampleSize = 512
-        val sample =
-          if n <= sampleSize then
-            data
-          else
-            Seq.tabulate (fn i => Seq.nth data ((Util.hash i) mod n)) sampleSize
+        val dist = Color.distance
 
-        val sampleSize = Seq.length sample
-        val sample = Mergesort.sort Color.compare sample
+        val dimBits = 3
+        val dim = Util.pow2 dimBits
+        val numBuckets = dim*dim*dim
+        fun chanIdx chan =
+          Word8.toInt (Word8.>> (chan, Word.fromInt (8 - dimBits)))
+        fun chanIdxs {red, green, blue} =
+          (chanIdx red, chanIdx green, chanIdx blue)
+        fun pack (r, g, b) = (dim*dim)*r + dim*g + b
 
-        val offsets =
-          AS.full (SeqBasis.filter 2000 (0, sampleSize+1)
-            (fn i => i)
-            (fn i => i = 0 orelse i = sampleSize orelse
-              Seq.nth sample (i-1) <> Seq.nth sample i))
-        fun off i = Seq.nth offsets i
-        val numUniq = Seq.length offsets - 1
+        val table = Array.array (numBuckets, [])
+        val sz = ref 0
+        fun tableSize () = !sz
 
-        (* Take first 40 of most frequent colors. Note that the comparison
-         * is swapped to put most frequent at front. *)
-        val histogram =
-          Seq.take
-            (Mergesort.sort (fn ((_, n1), (_, n2)) => Int.compare (n2, n1))
-            (Seq.tabulate (fn i => (Seq.nth sample (off i), off (i+1) - off i)) numUniq))
-          (Int.min (40, numUniq))
+        fun insert color =
+          let
+            val i = pack (chanIdxs color)
+            val inBucket = Array.sub (table, i)
+          in
+            Array.update (table, i, color :: inBucket);
+            sz := !sz + 1
+          end
 
-        (* the actual palette consists of
-         *   + 216 quantized colors
-         *   + 40 most frequent colors
-         * which totals to 256 colors.
-         *)
+        fun bounds x = (Int.max (0, x-1), Int.min (dim, x+2))
 
-        val (numQuantized, quantizeIdx, colorOfQuantizeIdx) =
-          makeQuantized (6, 6, 6)
+        fun minDist color =
+          let
+            val (r, g, b) = chanIdxs color
+          in
+            Util.loop (bounds r) Real.posInf (fn (md, r) =>
+            Util.loop (bounds g) md (fn (md, g) =>
+            Util.loop (bounds b) md (fn (md, b) =>
+              List.foldl (fn (c, md) => Real.min (md, dist (c, color)))
+                md
+                (Array.sub (table, pack (r, g, b)) ))))
+          end
 
-        val dist = Color.approxHumanPerceptionDistance
+        val candidatesSize = 20
 
+        fun sample i =
+          Seq.nth data (Util.hash i mod n)
+
+        fun chooseColorsLoop i =
+          if tableSize () = paletteSize then () else
+          let
+            fun minDist' px = (px, minDist px)
+            fun chooseMax ((c1, dc1), (c2, dc2)) =
+              if dc1 > dc2 then (c1, dc1) else (c2, dc2)
+            val (c, _) =
+              Util.loop (0, candidatesSize) (Color.black, Real.negInf)
+              (fn (best, j) => chooseMax (best, minDist' (sample (i+j))))
+          in
+            insert c;
+            chooseColorsLoop (i + candidatesSize)
+          end
+
+        (* First, demand that there are a few simple colors in there! *)
+        val _ = List.app insert requiredColors
+
+        (* Now, loop until full *)
+        val _ = chooseColorsLoop 0
+
+        (* Compact the table *)
+        val buckets = AS.full table
+        val bucketSizes = Seq.map List.length buckets
+        val bucketOffsets =
+          AS.full (SeqBasis.scan 100 op+ 0 (0, numBuckets) (Seq.nth bucketSizes))
+        val palette = ForkJoin.alloc paletteSize
+        val _ =
+          Util.for (0, numBuckets) (fn i =>
+            ignore (Util.copyListIntoArray
+              (Seq.nth buckets i)
+              palette
+              (Seq.nth bucketOffsets i)))
+        val palette = AS.full palette
+
+        (* remap by lookup into compacted table *)
         fun remapOne color =
           let
-            val qIdx = quantizeIdx color
-            val bestQuantized =
-              (dist (color, colorOfQuantizeIdx qIdx), qIdx)
-            val (_, bestIdx) =
-              Util.loop (0, Seq.length histogram) bestQuantized
-              (fn ((bestDist, bestIdx), i) =>
+            val (r, g, b) = chanIdxs color
+
+            fun chooseMin ((c1, dc1), (c2, dc2)) =
+              if dc1 <= dc2 then (c1, dc1) else (c2, dc2)
+
+            val (i, _) =
+              Util.loop (bounds r) (~1, Real.posInf) (fn (md, r) =>
+              Util.loop (bounds g) md (fn (md, g) =>
+              Util.loop (bounds b) md (fn (md, b) =>
                 let
-                  val d = dist (color, #1 (Seq.nth histogram i))
+                  val bucketIdx = pack (r, g, b)
+                  val bStart = Seq.nth bucketOffsets bucketIdx
+                  val bEnd = Seq.nth bucketOffsets (bucketIdx+1)
                 in
-                  if d < bestDist then (d, i+numQuantized) else (bestDist, bestIdx)
-                end)
+                  Util.loop (bStart, bEnd) md (fn (md, i) =>
+                    chooseMin (md, (i, dist (color, Seq.nth palette i))))
+                end)))
           in
-            bestIdx
+            Int.max (0, i)
           end
 
         fun remap {width, height, data} =
           AS.full (SeqBasis.tabulate 100 (0, Seq.length data)
                     (remapOne o Seq.nth data))
-
-        val palette =
-          Seq.tabulate (fn i =>
-            if i < numQuantized then
-              colorOfQuantizeIdx i
-            else
-              #1 (Seq.nth histogram (i - numQuantized)))
-          256
       in
         {colors = palette, remap = remap}
       end
@@ -653,7 +701,7 @@ struct
 
   fun write path img =
     let
-      val palette = Palette.quantized (6,7,6)
+      val palette = Palette.summarize [] 128 img
       val img' = #remap palette img
     in
       writeMany path 0 palette

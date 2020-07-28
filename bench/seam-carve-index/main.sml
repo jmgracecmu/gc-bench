@@ -35,8 +35,7 @@ val _ =
     let
       val ((palette, indices), tm) = Util.getTime (fn _ =>
         let
-          (* val palette = GIF.Palette.quantized (6,7,6) *)
-          val palette = GIF.Palette.summarize image
+          val palette = GIF.Palette.summarize [Color.black, Color.red] 128 image
         in
           (palette, #remap palette image)
         end)

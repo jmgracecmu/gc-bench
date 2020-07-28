@@ -42,6 +42,8 @@ sig
   (* `loop (lo, hi) b f`
    * for lo <= i < hi, iteratively do  b = f (b, i)  *)
   val loop: (int * int) -> 'a -> ('a * int -> 'a) -> 'a
+
+  val copyListIntoArray: 'a list -> 'a array -> int -> int
 end =
 struct
 
@@ -94,6 +96,14 @@ struct
   fun foreach s f =
     ForkJoin.parfor 4096 (0, ArraySlice.length s)
     (fn i => f (i, ArraySlice.sub (s, i)))
+
+  fun copyListIntoArray xs arr i =
+    case xs of
+      [] => i
+    | x :: xs =>
+        ( Array.update (arr, i, x)
+        ; copyListIntoArray xs arr (i+1)
+        )
 
   fun repeat (n, f) =
     let
