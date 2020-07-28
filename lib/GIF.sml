@@ -196,67 +196,146 @@ struct
 
   end
 
+  (* =================================================================== *)
+
+  structure CodeTable:
+  sig
+    type t
+    type idx = int
+    type code = int
+
+    val new: int -> t (* `new numColors` *)
+    val clear: t -> unit
+    val insert: (code * idx) -> t -> bool (* returns false when full *)
+    val maybeLookup: (code * idx) -> t -> code option
+  end =
+  struct
+    type idx = int
+    type code = int
+
+    exception Invalid
+
+    type t =
+      { nextCode: int ref
+      , numColors: int
+      , table: (idx * code) list array
+      }
+
+    fun new numColors =
+      { nextCode = ref (Util.boundPow2 numColors + 2)
+      , numColors = numColors
+      , table = Array.array (4096, [])
+      }
+
+    fun clear {nextCode, numColors, table} =
+      ( Util.for (0, Array.length table) (fn i => Array.update (table, i, []))
+      ; nextCode := Util.boundPow2 numColors + 2
+      )
+
+    fun insert (code, idx) ({nextCode, numColors, table}: t) =
+      if !nextCode = 4095 then
+        false (* GIF limits the maximum code number to 4095 *)
+      else
+        ( Array.update (table, code, (idx, !nextCode) :: Array.sub (table, code))
+        ; nextCode := !nextCode + 1
+        ; true
+        )
+
+    fun maybeLookup (code, idx) ({table, numColors, ...}: t) =
+      case List.find (fn (i, c) => i = idx) (Array.sub (table, code)) of
+        SOME (_, c) => SOME c
+      | NONE => NONE
+
+  end
+
+  (* =================================================================== *)
+
+  structure DynArray =
+  struct
+    type 'a t = 'a array * int
+
+    fun new () =
+      (ForkJoin.alloc 100, 0)
+
+    fun push x (data, nextIdx) =
+      if nextIdx < Array.length data then
+        (Array.update (data, nextIdx, x); (data, nextIdx+1))
+      else
+        let
+          val data' = ForkJoin.alloc (2 * Array.length data)
+        in
+          Util.for (0, Array.length data) (fn i =>
+            Array.update (data', i, Array.sub (data, i)));
+          Array.update (data', nextIdx, x);
+          (data', nextIdx+1)
+        end
+
+    fun toSeq (data, nextIdx) =
+      AS.slice (data, 0, SOME nextIdx)
+  end
+
+(*
+  structure DynArrayList =
+  struct
+    type 'a t = int * 'a array * ('a array list)
+
+    val chunkSize = 256
+
+    fun new () =
+      (0, ForkJoin.alloc chunkSize, [])
+
+    fun push x (nextIdx, chunk, tail) =
+      ( Array.update (chunk, nextIdx, x)
+      ; if nextIdx+1 < chunkSize then
+          (nextIdx+1, chunk, tail)
+        else
+          (0, ForkJoin.alloc chunkSize, chunk :: tail)
+      )
+
+    fun toSeq (nextIdx, chunk, tail) =
+      let
+        val totalSize = nextIdx + (chunkSize * List.length tail)
+        val result = ForkJoin.alloc totalSize
+
+        fun writeChunks cs i =
+          case cs of
+            [] => ()
+          | c :: cs' =>
+              ( Array.copy {src = c, dst = result, di = i - Array.length c}
+              ; writeChunks cs' (i - Array.length c)
+              )
+      in
+        Util.for (0, nextIdx) (fn i =>
+          Array.update (result, totalSize - nextIdx + i, Array.sub (chunk, i)));
+        writeChunks tail (totalSize - nextIdx);
+        AS.full result
+      end
+  end
+*)
+
+(*
+  structure DynList =
+  struct
+    type 'a t = 'a list
+    fun new () = []
+    fun push x list = x :: list
+    fun toSeq xs = Seq.rev (Seq.fromList xs)
+  end
+*)
+
+  (* =================================================================== *)
+
+
   structure LZW =
   struct
 
-    (* ===================================================================
-     * The code table maps index sequences to codes *)
-    structure CodeTable:
-    sig
-      type t
-      type idx = int
-      type code = int
-
-      val new: int -> t (* `new numColors` *)
-      val clear: t -> unit
-      val insert: (code * idx) -> t -> bool (* returns false when full *)
-      val maybeLookup: (code * idx) -> t -> code option
-    end =
-    struct
-      type idx = int
-      type code = int
-
-      exception Invalid
-
-      type t =
-        { nextCode: int ref
-        , numColors: int
-        , table: code array
-        }
-
-      fun new numColors =
-        { nextCode = ref (Util.boundPow2 numColors + 2)
-        , numColors = numColors
-        , table = Array.array (4096 * numColors, ~1)
-        }
-
-      fun clear {nextCode, numColors, table} =
-        ( Util.for (0, Array.length table) (fn i => Array.update (table, i, ~1))
-        ; nextCode := Util.boundPow2 numColors + 2
-        )
-
-      fun insert (code, idx) ({nextCode, numColors, table}: t) =
-        if !nextCode = 4095 then
-          false (* GIF limits the maximum code number to 4095 *)
-        else
-          ( Array.update (table, code*numColors + idx, !nextCode)
-          ; nextCode := !nextCode + 1
-          ; true
-          )
-
-      fun maybeLookup (code, idx) ({table, numColors, ...}: t) =
-        case Array.sub (table, code*numColors + idx) of
-          ~1 => NONE
-        | c => SOME c
-
-    end
-    (* =================================================================== *)
-
     structure T = CodeTable
+    structure DS = DynArray
 
     fun codeStream image (palette as {colors, remap}) =
       let
-        val colorIndices = remap image
+        val (colorIndices, tm) = Util.getTime (fn _ => remap image)
+        (* val _ = print ("remap in " ^ Time.fmt 4 tm ^ "s\n") *)
         fun colorIdx i = Seq.nth colorIndices i
 
         val numColors = Seq.length colors
@@ -266,28 +345,37 @@ struct
         val table = T.new numColors
 
         fun finish stream =
-          Seq.rev (Seq.fromList (eoi :: stream))
+          DS.toSeq (DS.push eoi stream)
 
         (* The buffer is implicit, represented instead by currentCode
          * i is the next index into `colorIndices` *)
         fun loop stream currentCode i =
           if i >= Seq.length colorIndices then
-            finish (currentCode :: stream)
+            finish (DS.push currentCode stream)
           else
             case T.maybeLookup (currentCode, colorIdx i) table of
               SOME code => loop stream code (i+1)
             | NONE =>
                 if T.insert (currentCode, colorIdx i) table then
-                  loop (currentCode :: stream) (colorIdx i) (i+1)
+                  loop (DS.push currentCode stream) (colorIdx i) (i+1)
                 else
                   ( T.clear table
-                  ; loop (clear :: currentCode :: stream) (colorIdx i) (i+1)
+                  ; loop (DS.push clear (DS.push currentCode stream))
+                      (colorIdx i) (i+1)
                   )
       in
         if Seq.length colorIndices = 0 then
           err "empty color index sequence"
         else
-          loop [clear] (colorIdx 0) 1
+          loop (DS.push clear (DS.new ())) (colorIdx 0) 1
+      end
+
+    val codeStream = fn image => fn palette =>
+      let
+        val (result, tm) = Util.getTime (fn _ => codeStream image palette)
+      in
+        print ("computed codeStream in " ^ Time.fmt 4 tm ^ "s\n");
+        result
       end
 
     fun packCodeStream numColors codes =
@@ -325,12 +413,13 @@ struct
               k - i  (* num outputs since the table was cleared *)
               + eoi  (* the max code immediately after clearing the table *)
           in
-            Util.loop (i, j) firstCodeWidth (fn (currWidth, k) =>
+            Util.loop (i, j) (firstCodeWidth, Util.pow2 firstCodeWidth)
+            (fn ((currWidth, cwPow2), k) =>
               ( Array.update (widths, k, currWidth)
-              ; if currentMaxCode (k+1) = Util.pow2 currWidth then
-                  currWidth+1
+              ; if currentMaxCode (k+1) <> cwPow2 then
+                  (currWidth, cwPow2)
                 else
-                  currWidth
+                  (currWidth+1, cwPow2*2)
               ));
             ()
           end)
@@ -433,7 +522,7 @@ struct
       val palette = Palette.quantized (6,7,6)
       val numberOfColors = Seq.length (#colors palette)
 
-      val imageData =
+      val (imageData, tm) = Util.getTime (fn _ =>
         AS.full (SeqBasis.tabulate 1 (0, numImages) (fn i =>
           let
             val img = getImage i
@@ -442,7 +531,9 @@ struct
               err "Not all images the same dimensions"
             else
               LZW.packCodeStream numberOfColors (LZW.codeStream img palette)
-          end))
+          end)))
+
+      val _ = print ("compressed image data in " ^ Time.fmt 4 tm ^ "s\n")
 
       val file = BinIO.openOut path
       val w8 = ExtraBinIO.w8 file

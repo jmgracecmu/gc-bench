@@ -63,12 +63,15 @@ val _ =
     print ("use -output XXX.gif to see result\n")
   else
     let
+      val (images, tm) = Util.getTime (fn _ =>
+        ArraySlice.full (SeqBasis.tabulate 1 (0, numSeams+1) removeSeams))
+      val _ = print ("generated images in " ^ Time.fmt 4 tm ^ "s\n")
       val (_, tm) = Util.getTime (fn _ =>
         GIF.writeMany outfile 10
           { width = w
           , height = h
           , numImages = numSeams+1
-          , getImage = removeSeams
+          , getImage = Seq.nth images
           })
     in
       print ("wrote to " ^ outfile ^ " in " ^ Time.fmt 4 tm ^ "s\n")
