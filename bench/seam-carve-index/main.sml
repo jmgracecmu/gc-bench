@@ -33,13 +33,19 @@ val _ =
     print ("use -output XXX.gif to see result\n")
   else
     let
-      val palette = GIF.Palette.quantized (6,7,6)
-      val redIdx = GIF.Palette.remapColor palette Color.red
-      val blackIdx = GIF.Palette.remapColor palette Color.black
+      val ((palette, indices), tm) = Util.getTime (fn _ =>
+        let
+          (* val palette = GIF.Palette.quantized (6,7,6) *)
+          val palette = GIF.Palette.summarize image
+        in
+          (palette, #remap palette image)
+        end)
 
-      val (indices, tm) = Util.getTime (fn _ => #remap palette image)
       val _ = print ("remapped color palette in " ^ Time.fmt 4 tm ^ "s\n")
       fun getIdx (i, j) = Seq.nth indices (i*w + j)
+
+      val redIdx = GIF.Palette.remapColor palette Color.red
+      val blackIdx = GIF.Palette.remapColor palette Color.black
 
       fun removeSeams count =
         let
