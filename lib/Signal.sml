@@ -12,73 +12,6 @@ struct
   structure A = Array
   structure AS = ArraySlice
 
-  (* ds: the delay distance, in seconds
-   * a: the decay parameter in range [0,1]
-   * snd: sequence of samples in range [-1,1]
-   *)
-  fun delay ds a (snd as {sr, data}: sound) =
-    let
-      val N = Seq.length data
-
-      (* convert to samples *)
-      val ds = Real.round (ds * Real.fromInt sr)
-
-      (* i: skip distance
-       * s: current sound
-       * powa: a^i
-       *
-       * Each loop iteration adds `a^i * s[k]` to `s[k+i*ds]` for each k.
-       * we compute this by "pulling" `a^i * s[j-i*ds]` into each s[j].
-       * This can either be done in two ways:
-       *   1. Copy the entire sound and recompute each s[j]
-       *   2. Modify only the s[j]'s which need to be recomputed. Note that
-       *   all samples before index i*ds do not change.
-       *
-       * Approach 1 performs exactly N writes, whereas approach 2 performs
-       * approximately 2*(N-i*ds) writes (because it writes intermediate results
-       * into a temporary array and then copies back into s). So, for earlier
-       * iterations (when i*ds is small) it makes sense to prefer the former.
-       * Then when i*ds is large enough, we switch to the latter approach.
-       * This guarantees O(N) work in total, because i increases exponentially.
-       *
-       * We're done when the skip distance i*ds exceeds the number of samples,
-       * or when a^i is sufficiently small (at which point further contributions
-       * would not be audible).
-       *)
-
-      fun next s powa i j =
-        let val k = j - (i*ds)
-        in (Seq.nth s j) + (if k < 0 then 0.0 else powa * Seq.nth s k)
-        end
-
-      fun loop s powa i =
-        if i*ds >= N orelse powa < 0.0001 then
-          s
-        else if i*ds < N div 10 then
-          loop (Seq.tabulate (next s powa i) N) (powa*powa) (2*i)
-        else
-          let
-            val tmp = SeqBasis.tabulate 10000 (i*ds, N) (next s powa i)
-          in
-            ForkJoin.parfor 10000 (i*ds, N) (fn j =>
-              AS.update (s, j, A.sub (tmp, j - i*ds)));
-
-            loop s (powa*powa) (2*i)
-          end
-
-      (* It's not correct to just call `loop data a 1`, because this could
-       * modify the input `data`. We need to make sure that we are operating
-       * on a copy. So, we'll open up the first iteration of the loop.
-       *)
-      val result =
-        if ds >= N orelse a < 0.0001 then
-          data
-        else
-          loop (Seq.tabulate (next data a 1) N) (a*a) 2
-    in
-      {sr = sr, data = result}
-    end
-
   fun delaySequential D a data =
     let
       val n = Seq.length data
@@ -86,9 +19,9 @@ struct
     in
       Util.for (0, n) (fn i =>
         if i < D then
-          Array.update (output, i, Seq.nth data i)
+          A.update (output, i, Seq.nth data i)
         else
-          Array.update (output, i, Seq.nth data i + a * Array.sub (output, i - D))
+          A.update (output, i, Seq.nth data i + a * A.sub (output, i - D))
       );
 
       AS.full output
@@ -105,31 +38,32 @@ struct
   (* Granularity parameters *)
   val blockWidth = CommandLineArgs.parseInt "comb-width" 600
   val blockHeight = CommandLineArgs.parseInt "comb-height" 50
+  val combGran = CommandLineArgs.parseInt "comb-threshold" 10000
   val _ = print ("comb-width " ^ Int.toString blockWidth ^ "\n")
   val _ = print ("comb-height " ^ Int.toString blockHeight ^ "\n")
+  val _ = print ("comb-threshold " ^ Int.toString combGran ^ "\n")
 
   (* Imagine laying out the data as a matrix, where sample s[i*D + j] is
    * at row i, column j.
    *)
   fun delay' D alpha data =
-    if alpha < 0.0001 then
-      data
-    else if Seq.length data <= 10000 then
+    if Seq.length data <= combGran then
       delaySequential D alpha data
     else
     let
       val n = Seq.length data
+      (* val _ = print ("delay' " ^ Int.toString D ^ " " ^ Int.toString n ^ "\n") *)
       val output = ForkJoin.alloc n
 
       val numCols = D
       val numRows = Util.ceilDiv n D
 
       fun getOutput i j =
-        Array.sub (output, i*numCols + j)
+        A.sub (output, i*numCols + j)
 
       fun setOutput i j x =
         let val idx = i*numCols + j
-        in if idx < n then Array.update (output, idx, x) else ()
+        in if idx < n then A.update (output, idx, x) else ()
         end
 
       fun input i j =
