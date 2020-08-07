@@ -79,6 +79,132 @@ struct
       {sr = sr, data = result}
     end
 
+  fun delaySequential D a data =
+    let
+      val n = Seq.length data
+      val output = ForkJoin.alloc n
+    in
+      Util.for (0, n) (fn i =>
+        if i < D then
+          Array.update (output, i, Seq.nth data i)
+        else
+          Array.update (output, i, Seq.nth data i + a * Array.sub (output, i - D))
+      );
+
+      AS.full output
+    end
+
+  fun pow (a: real) n =
+    if n <= 1 then
+      a
+    else if n mod 2 = 0 then
+      pow (a*a) (n div 2)
+    else
+      a * pow (a*a) (n div 2)
+
+  (* Granularity parameters *)
+  val blockWidth = CommandLineArgs.parseInt "comb-width" 600
+  val blockHeight = CommandLineArgs.parseInt "comb-height" 50
+  val _ = print ("comb-width " ^ Int.toString blockWidth ^ "\n")
+  val _ = print ("comb-height " ^ Int.toString blockHeight ^ "\n")
+
+  (* Imagine laying out the data as a matrix, where sample s[i*D + j] is
+   * at row i, column j.
+   *)
+  fun delay' D alpha data =
+    if alpha < 0.0001 then
+      data
+    else if Seq.length data <= 10000 then
+      delaySequential D alpha data
+    else
+    let
+      val n = Seq.length data
+      val output = ForkJoin.alloc n
+
+      val numCols = D
+      val numRows = Util.ceilDiv n D
+
+      fun getOutput i j =
+        Array.sub (output, i*numCols + j)
+
+      fun setOutput i j x =
+        let val idx = i*numCols + j
+        in if idx < n then Array.update (output, idx, x) else ()
+        end
+
+      fun input i j =
+        let val idx = i*numCols + j
+        in if idx >= n then 0.0 else Seq.nth data idx
+        end
+
+      val powAlpha = pow alpha blockHeight
+
+      val numColumnStrips = Util.ceilDiv numCols blockWidth
+      val numRowStrips = Util.ceilDiv numRows blockHeight
+
+      fun doColumnStrip c =
+        let
+          val jlo = blockWidth * c
+          val jhi = Int.min (numCols, jlo + blockWidth)
+          val width = jhi - jlo
+          val summaries =
+            AS.full (ForkJoin.alloc (width * numRowStrips))
+
+          fun doBlock b =
+            let
+              val ilo = blockHeight * b
+              val ihi = Int.min (numRows, ilo + blockHeight)
+              val ss = Seq.subseq summaries (width * b, width)
+            in
+              Util.for (0, width) (fn j => AS.update (ss, j, input ilo (jlo+j)));
+
+              Util.for (ilo+1, ihi) (fn i =>
+                Util.for (0, width) (fn j =>
+                  AS.update (ss, j, input i (jlo+j) + alpha * Seq.nth ss j)
+                )
+              )
+            end
+
+          val _ = ForkJoin.parfor 1 (0, numRowStrips) doBlock
+          val summaries' = delay' width powAlpha summaries
+
+          fun fillOutputBlock b =
+            let
+              val ilo = blockHeight * b
+              val ihi = Int.min (numRows, ilo + blockHeight)
+            in
+              if b = 0 then
+                Util.for (jlo, jhi) (fn j => setOutput 0 j (input 0 j))
+              else
+                let
+                  val ss = Seq.subseq summaries' (width * (b-1), width)
+                in
+                  Util.for (0, width) (fn j =>
+                    setOutput ilo (jlo+j) (input ilo (jlo+j) + alpha * Seq.nth ss j))
+                end;
+
+              Util.for (ilo+1, ihi) (fn i =>
+                Util.for (jlo, jhi) (fn j =>
+                  setOutput i j (input i j + alpha * getOutput (i-1) j)
+                )
+              )
+            end
+        in
+          ForkJoin.parfor 1 (0, numRowStrips) fillOutputBlock
+        end
+    in
+      ForkJoin.parfor 1 (0, numColumnStrips) doColumnStrip;
+
+      AS.full output
+    end
+
+  fun delay ds alpha ({sr, data}: sound) =
+    let
+      val ds = Real.round (ds * Real.fromInt sr)
+    in
+      {sr = sr, data = delay' ds alpha data}
+    end
+
   fun allPass ds a (snd as {sr, data}: sound) =
     let
       val {data=combed, ...} = delay ds a snd
