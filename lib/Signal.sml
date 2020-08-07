@@ -12,6 +12,28 @@ struct
   structure A = Array
   structure AS = ArraySlice
 
+(*
+  structure A =
+  struct
+    open A
+    val update = Unsafe.Array.update
+    val sub = Unsafe.Array.sub
+  end
+
+  structure AS =
+  struct
+    open AS
+    fun update (s, i, x) =
+      let val (a, start, _) = base s
+      in A.update (a, start+i, x)
+      end
+    fun sub (s, i) =
+      let val (a, start, _) = base s
+      in A.sub (a, start+i)
+      end
+  end
+*)
+
   fun delaySequential D a data =
     let
       val n = Seq.length data
@@ -68,7 +90,7 @@ struct
 
       fun input i j =
         let val idx = i*numCols + j
-        in if idx >= n then 0.0 else Seq.nth data idx
+        in if idx >= n then 0.0 else AS.sub (data, idx)
         end
 
       val powAlpha = pow alpha blockHeight
@@ -94,7 +116,7 @@ struct
 
               Util.for (ilo+1, ihi) (fn i =>
                 Util.for (0, width) (fn j =>
-                  AS.update (ss, j, input i (jlo+j) + alpha * Seq.nth ss j)
+                  AS.update (ss, j, input i (jlo+j) + alpha * AS.sub (ss, j))
                 )
               )
             end
@@ -114,7 +136,7 @@ struct
                   val ss = Seq.subseq summaries' (width * (b-1), width)
                 in
                   Util.for (0, width) (fn j =>
-                    setOutput ilo (jlo+j) (input ilo (jlo+j) + alpha * Seq.nth ss j))
+                    setOutput ilo (jlo+j) (input ilo (jlo+j) + alpha * AS.sub (ss, j)))
                 end;
 
               Util.for (ilo+1, ihi) (fn i =>
