@@ -200,28 +200,33 @@ struct
 
   fun delay ds alpha ({sr, data}: sound) =
     let
-      val ds = Real.round (ds * Real.fromInt sr)
+      val D = Real.round (ds * Real.fromInt sr)
     in
-      {sr = sr, data = delay' ds alpha data}
+      {sr = sr, data = delay' D alpha data}
+    end
+
+  fun allPass' D a data =
+    let
+      val combed = delay' D a data
+
+      fun output j =
+        let
+          val k = j - D
+        in
+          (1.0 - a*a) * (if k < 0 then 0.0 else Seq.nth combed k)
+          - (a * Seq.nth data j)
+        end
+    in
+      Seq.tabulate output (Seq.length data)
     end
 
   fun allPass ds a (snd as {sr, data}: sound) =
     let
-      val {data=combed, ...} = delay ds a snd
-
       (* convert to samples *)
-      val ds = Real.round (ds * Real.fromInt sr)
-
-      fun output j =
-        let
-          val k = j - ds
-        in
-          (1.0 - a*a) * (if k < 0 then 0.0 else Seq.nth combed k)
-          - (a * Seq.nth combed j)
-        end
+      val D = Real.round (ds * Real.fromInt sr)
     in
       { sr = sr
-      , data = Seq.tabulate output (Seq.length data)
+      , data = allPass' D a data
       }
     end
 
@@ -243,15 +248,37 @@ struct
     else
       0.0
 
-  fun reverb (dry: sound) =
+  fun reverb ({sr, data=dry}: sound) =
     let
-      val N = Seq.length (#data dry)
+      val N = Seq.length dry
 
-      val sr = #sr dry
+      (* Originally, I tuned the comb and allPass parameters
+       * based on numbers of samples at 44.1 kHz, which I chose
+       * to be relatively prime to one another. But now, to
+       * handle any sample rate, we need to convert these numbers
+       * of samples. Does it really matter if the sample delays are
+       * relatively prime? I'm not sure. For sample rates other
+       * than 44.1 kHz, they almost certainly won't be now. *)
+
       val srr = Real.fromInt sr
       fun secondsToSamples sec = Real.round (sec * srr)
-
       fun secondsAt441 samples = Real.fromInt samples / 44100.0
+      fun adjust x =
+        if sr = 44100 then x else secondsToSamples (secondsAt441 x)
+
+      val D1 = adjust 1931
+      val D2 = adjust 2213
+      val D3 = adjust 1747
+      val D4 = adjust 1559
+
+      val DA1 = adjust 167
+      val DA2 = adjust 191
+
+      val DE1 = adjust 1013
+      val DE2 = adjust 1102
+      val DE3 = adjust 1300
+
+      val DF = adjust 1500
 
       (* ==========================================
        * Fused reflections near 50ms
@@ -263,59 +290,44 @@ struct
        *
        * The basic design is 4 comb filters (in parallel)
        * which are then fed into two allpass filters, in series.
-       *
-       * Originally, I tuned the comb and allPass parameters
-       * based on numbers of samples at 44.1 kHz, which I chose
-       * to be relatively prime to one another. But now, to
-       * handle any sample rate, I switched to parameters
-       * expressed in seconds. Does it really matter if the
-       * sample delays are relatively prime? I'm not sure. For
-       * sample rates other than 44.1 kHz, they almost certainly
-       * won't be now.
        *)
 
       val (c1, c2, c3, c4) =
-        par4 (fn _ => delay (secondsAt441 1931) 0.7 dry,
-              fn _ => delay (secondsAt441 2213) 0.7 dry,
-              fn _ => delay (secondsAt441 1747) 0.7 dry,
-              fn _ => delay (secondsAt441 1559) 0.7 dry)
+        par4 (fn _ => delay' D1 0.7 dry,
+              fn _ => delay' D2 0.7 dry,
+              fn _ => delay' D3 0.7 dry,
+              fn _ => delay' D4 0.7 dry)
 
       fun combs i =
-        (Seq.nth (#data c1) i +
-         Seq.nth (#data c2) i +
-         Seq.nth (#data c3) i +
-         Seq.nth (#data c4) i)
+        (Seq.nth c1 i +
+         Seq.nth c2 i +
+         Seq.nth c3 i +
+         Seq.nth c4 i)
 
-      val fused = {sr = sr, data = Seq.tabulate combs N}
-      val fused = allPass (secondsAt441 167) 0.6 fused
-      val fused = allPass (secondsAt441 191) 0.6 fused
-
-      (* ==========================================
-       * early reflections are single echos of
-       * the dry sound that occur after around
-       * 25ms delay
-       *)
-      val ed1 = secondsToSamples (secondsAt441 1013)
-      val ed2 = secondsToSamples (secondsAt441 1102)
-      val ed3 = secondsToSamples (secondsAt441 1300)
+      val fused = Seq.tabulate combs N
+      val fused = allPass' DA1 0.6 fused
+      val fused = allPass' DA2 0.6 fused
 
       (* ==========================================
        * wet signal = dry + early + fused
+       *
+       * early reflections are single echos of
+       * the dry sound that occur after around
+       * 25ms delay
+       *
        * the fused reflections start emerging after
        * approximately 35ms
        *)
-      val fusedDelay = secondsToSamples (secondsAt441 1500)
 
       val wet = Seq.tabulate (fn i =>
-          shiftBy 0 (#data dry) i
-          + 0.6 * (shiftBy ed1 (#data dry) i)
-          + 0.5 * (shiftBy ed2 (#data dry) i)
-          + 0.4 * (shiftBy ed3 (#data dry) i)
-          + 0.75 * (shiftBy fusedDelay (#data fused) i))
-        (N + fusedDelay)
+          shiftBy 0 dry i
+          + 0.6 * (shiftBy DE1 dry i)
+          + 0.5 * (shiftBy DE2 dry i)
+          + 0.4 * (shiftBy DE3 dry i)
+          + 0.75 * (shiftBy DF fused i))
+        (N + DF)
 
     in
-      (* wet *)
       NewWaveIO.compress 2.0 {sr=sr, data=wet}
     end
 
