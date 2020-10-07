@@ -4,7 +4,7 @@ import sys
 import json
 
 def makeCmd(numProcs):
-  numa = ("" if numProcs == 1 else "numactl -i all -- ")
+  numa = ("" if numProcs == 1 else "")
   return {'cmd': '/usr/bin/time -v {}./sort 100000000 {} 10 5'.format(numa, numProcs),
           'tag': 'sort-shootout',
           'config': 'go',
