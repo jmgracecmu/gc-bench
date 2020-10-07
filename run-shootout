@@ -2,7 +2,7 @@
 
 (cd shootout/go && make)
 (cd shootout/java && make)
-(cd shootout/mpl && make)
+(cd shootout/mpl-cc && make)
 
 NOW=$(date '+%y%m%d-%H%M%S')
 
@@ -10,6 +10,6 @@ NOW=$(date '+%y%m%d-%H%M%S')
 { \
   shootout/java/gencmds; \
   shootout/go/gencmds; \
-  shootout/mpl/gencmds; \
+  shootout/mpl-cc/gencmds; \
 } \
-| scripts/runcmds.py --repeat 10 --output results/sort-$NOW $@
+| scripts/runcmds.py --repeat 1 --output results/sort-$NOW $@

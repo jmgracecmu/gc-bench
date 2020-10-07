@@ -6,7 +6,6 @@ import re
 import copy
 import os
 
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -123,6 +122,9 @@ def averageTime(data, config, tag, procs):
   try:
     return sum(tms) / len(tms)
   except:
+    print("[ERROR] No time in the result file for compiler %s and #procs = %s"%(config, procs))
+    print("[ERROR] Cannot draw speed up plot of Fig 7, exiting")
+    exit(1)
     return None
 
 def averageSpace(data, config, tag, procs):
@@ -242,8 +244,8 @@ def maxRes(config, procs):
 
 # ==========================================================================
 
-configs = ['mpl-cc', 'java', 'go']
-colors = ['blue', 'green', 'red', 'darkturquoise', 'black', 'darkviolet', 'goldenrod', 'dimgrey']
+configs = ['java', 'go', 'mpl-cc']
+colors = ['green', 'red', 'blue', 'darkturquoise', 'black', 'darkviolet', 'goldenrod', 'dimgrey']
 markers = ['o','v','^','<','>','s','d','D']
 linestyles = ['solid', 'dashed']
 procs = [1,10,20,30,40,50,60,70]
