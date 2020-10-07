@@ -1,3 +1,3 @@
-COMPILER=mpl-cc
+COMPILER=~/tools/mpl-cc/build/bin/mpl-cc
 FLAGS=
 COMPAT=mpl-cc

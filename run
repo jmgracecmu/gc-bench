@@ -9,5 +9,5 @@ scripts/gencmds.py exp.json \
 | grep -v "ocaml-" \
 | grep -v "\"tag\": \"fib\"" \
 | grep -v "\"tag\": \"nqueens\"" \
-| scripts/runcmds.py --repeat 10 --compile --output results/$NOW $@
+| scripts/runcmds.py --repeat 1 --compile --output results/$NOW $@
 echo "[INFO] wrote timings results to 'results/$NOW'"

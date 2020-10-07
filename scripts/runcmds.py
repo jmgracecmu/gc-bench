@@ -79,7 +79,7 @@ if __name__ == "__main__":
       for b in binsToMake:
         sys.stderr.write("  " + b + "\n")
 
-      cmd = "make -j " + (" ".join(binsToMake))
+      cmd = "make -j2 " + (" ".join(binsToMake))
       sys.stderr.write("[INFO] " + cmd + "\n")
       out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
       sys.stderr.write(out + "\n")
