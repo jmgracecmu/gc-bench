@@ -1,0 +1,98 @@
+[
+  {
+    "tag": ["dmm"],
+    "bench": ["dmm"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-N 1024"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["nn"],
+    "bench": ["nn"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-N 1000000"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["msort"],
+    "bench": ["msort"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-N 10000000"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["nqueens"],
+    "bench": ["nqueens"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-N 13"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["primes"],
+    "bench": ["primes"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-N 100000000"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["ray"],
+    "bench": ["ray"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-n 1000 -m 1000"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["tokens"],
+    "bench": ["tokens"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["inputs/words64.txt --verbose --no-output"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["dedup"],
+    "bench": ["dedup"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["inputs/words64.txt --verbose --no-output"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["suffix-array"],
+    "bench": ["suffix-array"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["--benchmark -N 10000000"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["palindrome"],
+    "bench": ["palindrome"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-N 1000000"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["grep"],
+    "bench": ["grep"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["ee inputs/words64.txt --benchmark"],
+    "args1": ["-repeat 10 -warmup 5"]
+  },
+  {
+    "tag": ["quickhull"],
+    "bench": ["quickhull"],
+    "config": ["mpl", "mpl-cc", "mlton"],
+    "procs": ["1", "2", "3", "4", "5", "6", "7"],
+    "args": ["-N 10000000"],
+    "args1": ["-repeat 10 -warmup 5"]
+  }
+]
