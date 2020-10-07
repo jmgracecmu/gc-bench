@@ -371,25 +371,24 @@ else:
     sys.exit(1)
   timingsFile = os.path.join('results', mostRecent)
 
-if len(sys.argv) > 2:
-  workingSetFile = sys.argv[2]
-else:
-  print("[INFO] no working-set file argument; finding most recent")
-  try:
-    mostRecent = mostRecentResultsFile(ws=True)
-  except:
-    print("[ERR] could not find most recent results/ws-* file\n " + \
-          "  check that these are formatted as 'ws-YYMMSS-hhmmss'")
-    sys.exit(1)
-  workingSetFile = os.path.join('results', mostRecent)
+# if len(sys.argv) > 2:
+#   workingSetFile = sys.argv[2]
+# else:
+#   print("[INFO] no working-set file argument; finding most recent")
+#   try:
+#     mostRecent = mostRecentResultsFile(ws=True)
+#   except:
+#     print("[ERR] could not find most recent results/ws-* file\n " + \
+#           "  check that these are formatted as 'ws-YYMMSS-hhmmss'")
+#     sys.exit(1)
+#   workingSetFile = os.path.join('results', mostRecent)
 
 print("[INFO] reading {}\n".format(timingsFile))
 with open(timingsFile, 'r') as data:
   resultsData = json_careful_readlines(data)
-print("[INFO] reading {}\n".format(workingSetFile))
-with open(workingSetFile, 'r') as data:
-  workingSetData = json_careful_readlines(data)
-WS = [ parseStats(row) for row in workingSetData ]
+# print("[INFO] reading {}\n".format(workingSetFile))
+# with open(workingSetFile, 'r') as data:
+#   workingSetData = json_careful_readlines(data)
 D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
 maxp = max(foundProcs)
@@ -418,11 +417,10 @@ print("TIMINGS")
 print(table(tt, defaultAlign))
 print("")
 
-headers = ['Benchmark', 'WS', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
+headers = ['Benchmark', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
 tt = [headers, "="]
 for tag in orderedTags:
   thisRow = [tag,
-             sp(averageSpace(WS, 'mlton-working-set', tag, 1)),
              sp(averageSpace(D, 'mlton', tag, 1)),
              sp(averageSpace(D, 'mpl', tag, 1)),
              sp(averageSpace(D, 'mpl-cc', tag, 1)),
@@ -436,94 +434,94 @@ print("SPACE (MAX RESIDENCY)")
 print(table(tt, defaultAlign))
 print("")
 
-h1 = ["", 'MPL(1) Local GC', None, None, None, 'MPL({}) Local GC'.format(maxp), None, None, None]
-h2 = ['Benchmark'] + (['Promo', 'Collect', 'Count', 'Reclaim'] * 2)
-tt = [h1, h2, "="]
-for tag in orderedTags:
-  thisRow = [tm(averagePromoTime(D, 'mpl', tag, 1)),
-             tm(averageLocalGCTime(D, 'mpl', tag, 1)),
-             averageNumLocalGCs(D, 'mpl', tag, 1),
-             sp(averageLocalReclaimed(D, 'mpl', tag, 1)),
-             tm(averagePromoTime(D, 'mpl', tag, maxp)),
-             tm(averageLocalGCTime(D, 'mpl', tag, maxp)),
-             averageNumLocalGCs(D, 'mpl', tag, maxp),
-             sp(averageLocalReclaimed(D, 'mpl', tag, maxp))
-            ]
-  thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
-  thisRow = [ (x if x is not None else "--") for x in thisRow ]
-  tt.append(thisRow)
+# h1 = ["", 'MPL(1) Local GC', None, None, None, 'MPL({}) Local GC'.format(maxp), None, None, None]
+# h2 = ['Benchmark'] + (['Promo', 'Collect', 'Count', 'Reclaim'] * 2)
+# tt = [h1, h2, "="]
+# for tag in orderedTags:
+#   thisRow = [tm(averagePromoTime(D, 'mpl', tag, 1)),
+#              tm(averageLocalGCTime(D, 'mpl', tag, 1)),
+#              averageNumLocalGCs(D, 'mpl', tag, 1),
+#              sp(averageLocalReclaimed(D, 'mpl', tag, 1)),
+#              tm(averagePromoTime(D, 'mpl', tag, maxp)),
+#              tm(averageLocalGCTime(D, 'mpl', tag, maxp)),
+#              averageNumLocalGCs(D, 'mpl', tag, maxp),
+#              sp(averageLocalReclaimed(D, 'mpl', tag, maxp))
+#             ]
+#   thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
+#   thisRow = [ (x if x is not None else "--") for x in thisRow ]
+#   tt.append(thisRow)
 
-print("MPL COLLECTION STATISTICS")
-print("""\
-+-------------------------------------------------------------------------+
-| "Reclaim" is the number of bytes reclaimed by local collections,        |
-| including the impact of defragmentation. This is a cumulative measure   |
-| throughout execution, where each collection adds:                       |
-|   (page_size) * (num_pages_after - num_pages_before)                    |
-+-------------------------------------------------------------------------+""")
-print(table(tt, defaultAlign))
-print("")
+# print("MPL COLLECTION STATISTICS")
+# print("""\
+# +-------------------------------------------------------------------------+
+# | "Reclaim" is the number of bytes reclaimed by local collections,        |
+# | including the impact of defragmentation. This is a cumulative measure   |
+# | throughout execution, where each collection adds:                       |
+# |   (page_size) * (num_pages_after - num_pages_before)                    |
+# +-------------------------------------------------------------------------+""")
+# print(table(tt, defaultAlign))
+# print("")
 
-h1 = ["", 'MPL/CC(1) Local GC', None, None, None, 'MPL/CC({}) Local GC'.format(maxp), None, None, None]
-h2 = ['Benchmark'] + (['Promo', 'Collect', 'Count', 'Reclaim'] * 2)
-tt = [h1, h2, "="]
-for tag in orderedTags:
-  thisRow = [tm(averagePromoTime(D, 'mpl-cc', tag, 1)),
-             tm(averageLocalGCTime(D, 'mpl-cc', tag, 1)),
-             averageNumLocalGCs(D, 'mpl-cc', tag, 1),
-             sp(averageLocalReclaimed(D, 'mpl-cc', tag, 1)),
-             tm(averagePromoTime(D, 'mpl-cc', tag, maxp)),
-             tm(averageLocalGCTime(D, 'mpl-cc', tag, maxp)),
-             averageNumLocalGCs(D, 'mpl-cc', tag, maxp),
-             sp(averageLocalReclaimed(D, 'mpl-cc', tag, maxp))
-            ]
-  thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
-  thisRow = [ (x if x is not None else "--") for x in thisRow ]
-  tt.append(thisRow)
+# h1 = ["", 'MPL/CC(1) Local GC', None, None, None, 'MPL/CC({}) Local GC'.format(maxp), None, None, None]
+# h2 = ['Benchmark'] + (['Promo', 'Collect', 'Count', 'Reclaim'] * 2)
+# tt = [h1, h2, "="]
+# for tag in orderedTags:
+#   thisRow = [tm(averagePromoTime(D, 'mpl-cc', tag, 1)),
+#              tm(averageLocalGCTime(D, 'mpl-cc', tag, 1)),
+#              averageNumLocalGCs(D, 'mpl-cc', tag, 1),
+#              sp(averageLocalReclaimed(D, 'mpl-cc', tag, 1)),
+#              tm(averagePromoTime(D, 'mpl-cc', tag, maxp)),
+#              tm(averageLocalGCTime(D, 'mpl-cc', tag, maxp)),
+#              averageNumLocalGCs(D, 'mpl-cc', tag, maxp),
+#              sp(averageLocalReclaimed(D, 'mpl-cc', tag, maxp))
+#             ]
+#   thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
+#   thisRow = [ (x if x is not None else "--") for x in thisRow ]
+#   tt.append(thisRow)
 
-print("MPL/CC LOCAL COLLECTION STATISTICS")
-print(table(tt, defaultAlign))
-print("")
+# print("MPL/CC LOCAL COLLECTION STATISTICS")
+# print(table(tt, defaultAlign))
+# print("")
 
-h1 = ["", 'MPL/CC(1) Concurrent GC', None, None, None, None, None, 'MPL/CC({}) Concurrent GC'.format(maxp), None, None, None, None, None]
-h2 = ["", "Root", None, None, "Internal", None, None, "Root", None, None, "Internal", None, None]
-h3 = ['Benchmark'] + (['T', '#', 'RC'] * 4)
-tt = [h1, h2, h3, "="]
-for tag in orderedTags:
-  thisRow = [ tm(averageTimeRootCC(D, 'mpl-cc', tag, 1)),
-              averageNumRootCCs(D, 'mpl-cc', tag, 1),
-              sp(averageRootReclaimed(D, 'mpl-cc', tag, 1)),
-              tm(averageTimeInternalCC(D, 'mpl-cc', tag, 1)),
-              averageNumInternalCCs(D, 'mpl-cc', tag, 1),
-              sp(averageInternalReclaimed(D, 'mpl-cc', tag, 1)),
-              tm(averageTimeRootCC(D, 'mpl-cc', tag, maxp)),
-              averageNumRootCCs(D, 'mpl-cc', tag, maxp),
-              sp(averageRootReclaimed(D, 'mpl-cc', tag, maxp)),
-              tm(averageTimeInternalCC(D, 'mpl-cc', tag, maxp)),
-              averageNumInternalCCs(D, 'mpl-cc', tag, maxp),
-              sp(averageInternalReclaimed(D, 'mpl-cc', tag, maxp))
-            ]
-  thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
-  thisRow = [ (x if x is not None else "--") for x in thisRow ]
-  tt.append(thisRow)
+# h1 = ["", 'MPL/CC(1) Concurrent GC', None, None, None, None, None, 'MPL/CC({}) Concurrent GC'.format(maxp), None, None, None, None, None]
+# h2 = ["", "Root", None, None, "Internal", None, None, "Root", None, None, "Internal", None, None]
+# h3 = ['Benchmark'] + (['T', '#', 'RC'] * 4)
+# tt = [h1, h2, h3, "="]
+# for tag in orderedTags:
+#   thisRow = [ tm(averageTimeRootCC(D, 'mpl-cc', tag, 1)),
+#               averageNumRootCCs(D, 'mpl-cc', tag, 1),
+#               sp(averageRootReclaimed(D, 'mpl-cc', tag, 1)),
+#               tm(averageTimeInternalCC(D, 'mpl-cc', tag, 1)),
+#               averageNumInternalCCs(D, 'mpl-cc', tag, 1),
+#               sp(averageInternalReclaimed(D, 'mpl-cc', tag, 1)),
+#               tm(averageTimeRootCC(D, 'mpl-cc', tag, maxp)),
+#               averageNumRootCCs(D, 'mpl-cc', tag, maxp),
+#               sp(averageRootReclaimed(D, 'mpl-cc', tag, maxp)),
+#               tm(averageTimeInternalCC(D, 'mpl-cc', tag, maxp)),
+#               averageNumInternalCCs(D, 'mpl-cc', tag, maxp),
+#               sp(averageInternalReclaimed(D, 'mpl-cc', tag, maxp))
+#             ]
+#   thisRow = [tag] + [ str(x) if x is not None else None for x in thisRow ]
+#   thisRow = [ (x if x is not None else "--") for x in thisRow ]
+#   tt.append(thisRow)
 
-print("MPL/CC CONCURRENT COLLECTION STATISTICS")
-print(table(tt, defaultAlign))
-print("")
+# print("MPL/CC CONCURRENT COLLECTION STATISTICS")
+# print(table(tt, defaultAlign))
+# print("")
 
-headers = ['Benchmark', 'WS', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
-tt = [headers, "="]
-for tag in orderedTags:
-  thisRow = [tag,
-             sp(averageSpace(WS, 'mlton-working-set', tag, 1)),
-             sp(averageSpace(D, 'mlton', tag, 1)),
-             sp(averageSpace(D, 'mpl', tag, 1)),
-             sp(averageSpace(D, 'mpl-cc', tag, 1)),
-             sp(averageSpace(D, 'mpl', tag, maxp)),
-             sp(averageSpace(D, 'mpl-cc', tag, maxp))
-            ]
-  thisRow = [ (x if x is not None else "--") for x in thisRow ]
-  tt.append(thisRow)
+# headers = ['Benchmark', 'WS', 'MLton', 'MPL(1)', 'MPL/CC(1)', 'MPL({})'.format(maxp), 'MPL/CC({})'.format(maxp)]
+# tt = [headers, "="]
+# for tag in orderedTags:
+#   thisRow = [tag,
+#              sp(averageSpace(WS, 'mlton-working-set', tag, 1)),
+#              sp(averageSpace(D, 'mlton', tag, 1)),
+#              sp(averageSpace(D, 'mpl', tag, 1)),
+#              sp(averageSpace(D, 'mpl-cc', tag, 1)),
+#              sp(averageSpace(D, 'mpl', tag, maxp)),
+#              sp(averageSpace(D, 'mpl-cc', tag, maxp))
+#             ]
+#   thisRow = [ (x if x is not None else "--") for x in thisRow ]
+#   tt.append(thisRow)
 
 # percent difference (b-a)/|a|
 def pcd(b, a):
@@ -531,9 +529,9 @@ def pcd(b, a):
     xx = 100.0 * (b-a) / abs(a)
     result = ("+" if xx >= 0.0 else "") + ("{:.1f}%".format(xx))
     if xx > 0.0:
-      return red(result)
-    else:
       return result
+    else:
+      return green(result)
   except:
     return None
 
@@ -625,7 +623,8 @@ print("MPL/CC versus MPL")
 print(table(tt, defaultAlign))
 print("")
 
-print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
+# print("[INFO] done reporting {} and {}".format(timingsFile, workingSetFile))
+print("[INFO] done reporting {}".format(timingsFile))
 
 # ============================================================================
 
@@ -654,185 +653,6 @@ def latexpcd(b, a, highlight=True):
     sys.stderr.write("[WARN] " + str(e) + "\n")
     return "--"
 
-pcdResultsFile = "figures/pcd-table.tex"
-with open(pcdResultsFile, 'w') as output:
-  allP = [1,10,20,30,40,50,60,70]
-  for tag in orderedTags:
-    row = []
-    for p in allP:
-      mpl = tm(averageTime(D, 'mpl', tag, p))
-      mplcc = tm(averageTime(D, 'mpl-cc', tag, p))
-      rmpl = averageSpace(D, 'mpl', tag, p)
-      rmplcc = averageSpace(D, 'mpl-cc', tag, p)
-
-      tpcd = latexpcd(mplcc, mpl)
-      rpcd = latexpcd(rmplcc, rmpl)
-
-      row.append("")
-      row.append(tpcd)
-      row.append(rpcd)
-
-    output.write(tag + " & ".join(row))
-    output.write("  \\\\\n")
-print("[INFO] wrote to {}".format(pcdResultsFile))
-
-# ============================================================================
-
-def fmt(xx):
-  if xx is None:
-    return "--"
-  elif type(xx) is str:
-    return xx
-  # elif xx < 1.0:
-  #   return noLeadZero("{:.3f}".format(xx))
-  elif xx < 10.0:
-    return "{:.2f}".format(xx)
-  elif xx < 100.0:
-    return "{:.1f}".format(xx)
-  else:
-    return str(int(round(xx)))
-
-pcdsT1 = []
-pcdsTp = []
-overheads = []
-overheadsNoPrimes = []
-speedups = []
-
-timeTableResults = "figures/all-time-table.tex"
-with open(timeTableResults, 'w') as output:
-  for tag in orderedTags:
-    mlton = tm(averageTime(D, 'mlton', tag, 1))
-    mpl1 = tm(averageTime(D, 'mpl', tag, 1))
-    mplp = tm(averageTime(D, 'mpl', tag, maxp))
-    mplcc1 = tm(averageTime(D, 'mpl-cc', tag, 1))
-    mplccp = tm(averageTime(D, 'mpl-cc', tag, maxp))
-
-    pcdsT1.append(pcd(mplcc1, mpl1))
-    pcdsTp.append(pcd(mplccp, mplp))
-    overheads.append(sd(mplcc1, mlton))
-    speedups.append(sd(mlton, mplccp))
-    if tag != "primes":
-      overheadsNoPrimes.append(sd(mplcc1, mlton))
-
-    row = \
-      [ mlton
-      , mpl1
-      , fmt(mplcc1) + " (" + latexpcd(mplcc1, mpl1, highlight=False) + ")"
-      , ov(sd(mpl1, mlton))
-      , ov(sd(mplcc1, mlton))
-      , mplp
-      , fmt(mplccp) + " (" + latexpcd(mplccp, mplp, highlight=False) + ")"
-      , su(sd(mlton, mplp))
-      , su(sd(mlton, mplccp))
-      ]
-
-    # row = \
-    #   [ mlton
-    #   , mpl1
-    #   , tm(sd(mpl1, mlton))
-    #   , mplp
-    #   , tm(sd(mlton, mplp))
-    #   , mplcc1
-    #   , tm(sd(mplcc1, mlton))
-    #   , mplccp
-    #   , tm(sd(mlton, mplccp))
-    #   ]
-
-    row = [ fmt(x) for x in row ]
-    output.write(" & ".join([tag] + row))
-    output.write("  \\\\\n")
-print("[INFO] wrote to {}".format(timeTableResults))
-
-pcdsT1 = [x for x in pcdsT1 if x is not None]
-pcdsTp = [x for x in pcdsTp if x is not None]
-overheads = [x for x in overheads if x is not None]
-overheadsNoPrimes = [x for x in overheadsNoPrimes if x is not None]
-speedups = [x for x in speedups if x is not None]
-print("AVERAGE TIME PCD 1: {}".format(int(sum(pcdsT1) / len(pcdsT1))))
-print("AVERAGE TIME PCD {}: {}".format(maxp, int(sum(pcdsTp) / len(pcdsTp))))
-print("AVERAGE OVERHEADS: {}".format(sum(overheads) / len(overheads)))
-print("AVERAGE OVERHEADS (no primes): {}".format(sum(overheadsNoPrimes) / len(overheadsNoPrimes)))
-print("AVERAGE SPEEDUPS: {}".format(sum(speedups) / len(speedups)))
-
-# ============================================================================
-
-# ============================================================================
-
-def sfmt(xx):
-  if xx is None:
-    return "--"
-  elif type(xx) is str:
-    return xx
-  elif xx < 0.01:
-    return noLeadZero("{:.4f}".format(xx))
-  elif xx < 0.1:
-    return noLeadZero("{:.3f}".format(xx))
-  elif xx < 1.0:
-    return "{:.2f}".format(xx)
-  elif xx < 10.0:
-    return "{:.1f}".format(xx)
-  else:
-    return str(int(round(xx)))
-
-def spg(kb):
-  try:
-    gb = kb / (1000.0 * 1000.0)
-    if gb < .01:
-      return round(gb, 4)
-    elif gb < .1:
-      return round(gb, 3)
-    elif gb < 1.0:
-      return round(gb, 2)
-    elif gb < 10.0:
-      return round(gb, 1)
-    else:
-      return round(gb, 0)
-  except:
-    return None
-
-pcdsR1 = []
-pcdsRp = []
-
-spaceTableResults = "figures/all-space-table.tex"
-with open(spaceTableResults, 'w') as output:
-  for tag in orderedTags:
-    ws = spg(averageSpace(WS, 'mlton-working-set', tag, 1))
-    mlton = spg(averageSpace(D, 'mlton', tag, 1))
-    mpl1 = spg(averageSpace(D, 'mpl', tag, 1))
-    mplp = spg(averageSpace(D, 'mpl', tag, maxp))
-    mplcc1 = spg(averageSpace(D, 'mpl-cc', tag, 1))
-    mplccp = spg(averageSpace(D, 'mpl-cc', tag, maxp))
-
-    pcdsR1.append(pcd(mplcc1, mpl1))
-    pcdsRp.append(pcd(mplccp, mplp))
-
-    row = \
-      [ mlton
-      , mpl1
-      , sfmt(mplcc1) + " (" + latexpcd(mplcc1, mpl1, highlight=True) + ")"
-      , bu(sd(mpl1, mlton))
-      , bu(sd(mplcc1, mlton))
-      , mplp
-      , sfmt(mplccp) + " (" + latexpcd(mplccp, mplp, highlight=True) + ")"
-      , bu(sd(mplp, mlton))
-      , bu(sd(mplccp, mlton))
-      ]
-
-    row = [ sfmt(x) for x in row ]
-    output.write(" & ".join([tag] + row))
-    output.write("  \\\\\n")
-print("[INFO] wrote to {}".format(spaceTableResults))
-
-pcdsR1 = [x for x in pcdsR1 if x is not None]
-pcdsRp = [x for x in pcdsRp if x is not None]
-print("AVERAGE SPACE PCD 1: {}".format(int(sum(pcdsR1) / len(pcdsR1))))
-print("AVERAGE SPACE PCD {}: {}".format(maxp, int(sum(pcdsRp) / len(pcdsRp))))
-
-# ============================================================================
-
-speedupTags = [ t for t in orderedTags if "ocaml" not in t ]
-
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -844,7 +664,7 @@ markers = ['o','v','^','<','>','s','d','D']
 linestyles = ['solid', 'dashed']
 
 # markers = ['.'] * len(speedupTags)
-procs = [1,10,20,30,40,50,60,70]
+procs = P
 
 fontSize = 12
 legendFontSize = 11
@@ -852,9 +672,20 @@ markerSize = 7
 
 plt.plot(procs, procs, marker="", color="grey", linewidth=0.5)
 lines = []
+
+speedupTags = [ t for t in orderedTags if "ocaml" not in t ]
 for (i, tag) in enumerate(speedupTags):
   baseline = averageTime(D, 'mlton', tag, 1)
-  speedups = map(lambda p: baseline / averageTime(D, 'mpl-cc', tag, p), procs)
+  speedups = []
+  p_completed = []
+  for p in procs:
+    avgtm = averageTime(D, 'mpl-cc', tag, p)
+    if (avgtm != None):
+      speedups.append(baseline/avgtm)
+      p_completed.append(p)
+  if len(speedups)==0:
+    continue
+  # speedups = map(lambda p: baseline / averageTime(D, 'mpl-cc', tag, p), procs)
   color = colors[i % len(colors)]
   marker = markers[i % len(markers)]
   linestyle = linestyles[i / len(markers)]
