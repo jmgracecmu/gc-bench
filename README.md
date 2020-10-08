@@ -1,16 +1,10 @@
 # gc-bench
 Benchmarks for evaluating MPL performance.
 
-## Setup
-
-You need these in your path:
-  * `mlton`, the MLton compiler
-  * `mpl`, the MaPLe compiler
-  * `mpl-cc`, the MaPLe compiler with concurrent collection
-
 ## Run
 
-Run all experiments. By default, does each benchmark one.
+Run all experiments for cores ranging from 1 to 70 with 10 core increments.
+By default, each benchmark is run once (with warmup).
 You can pass `--repeat N` to do `N` repetitions of each benchmark.
 ```
 $ ./run
@@ -18,11 +12,14 @@ $ ./run
 ```
 $ ./run --repeat 10
 ```
+Similar to the `run` script, there is a `run-cb` 
+script which only runs  the less memory hungry benchmarks on cores ranging from 1 to 7.
 
-The `run` script produces a file `results/XXX` where `XXX` is the
-current date/time. The `report` script will print a summary. With no
-arguments, this selects the most recent results. Or, you can pick a
+Both the scripts produce a file `results/XXX` where `XXX` is the
+current date/time. The `report` script will print a summary of the results. 
+With no arguments, this selects the most recent results. Or, you can pick a
 particular file.
+
 ```
 $ ./report
 ```
@@ -30,7 +27,7 @@ $ ./report
 $ ./report results/XXX
 ```
 
-## Huh?
+## Organization?
 
 Here's how the repo is organized:
 
@@ -42,6 +39,8 @@ Here's how the repo is organized:
   * `scripts/` has some utilities for building and running benchmarks.
   * `exp.json` defines the experiments to be performed. It's fairly
   self-explanatory.
+  * `exp-cb.json` defines the experiments that can be run on an 8 core machine
+     and 12 GB RAM
 
 Individual benchmark binaries are named `BENCH.CONFIG.bin`, where `BENCH` is a
 benchmark name (one of the subdirectories of `bench/`) and `CONFIG` is a
