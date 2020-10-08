@@ -598,6 +598,8 @@ for tag in orderedTags:
   tt.append(row)
 
 print("COMPARISON WITH MLTON")
+print("Speedup(p) = (MLton time) / (MPL(p) time)")
+print("Overhead   = (MPL(1) time) / (MLton time)")
 print("Blowup(p) = (MPL(p) space) / (MLton space)")
 print(table(tt, defaultAlign))
 print("")
