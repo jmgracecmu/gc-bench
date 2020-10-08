@@ -28,7 +28,19 @@ def makeCmd(gcConfig, numProcs):
           'procs': numProcs,
           'cwd': 'shootout/java'}
 
+maxp = 70
 procs = [1,10,20,30,40,50,60,70]
+
+if len(sys.argv) > 1:
+  maxp = int(sys.argv[1])
+
+if (maxp >= 10):
+  procs = range(1, (maxp/10)+1)
+  procs = [10*p for p in procs]
+  procs = [1] + procs
+else:
+  procs = range(1, maxp+1)
+
 gcConfigNum = 0
 
 for p in procs:

@@ -394,6 +394,9 @@ with open(timingsFile, 'r') as data:
 #   workingSetData = json_careful_readlines(data)
 D = [ parseStats(row) for row in resultsData ]
 P = sorted(list(foundProcs))
+
+if (len(P) == 0):
+  print("[ERROR] result file %s is empty"%timingsFile)
 maxp = max(foundProcs)
 
 orderedTags = sorted(list(foundTags))
