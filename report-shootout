@@ -122,9 +122,9 @@ def averageTime(data, config, tag, procs):
   try:
     return sum(tms) / len(tms)
   except:
-    print("[ERROR] No time in the result file for compiler %s and #procs = %s"%(config, procs))
-    print("[ERROR] Cannot draw speed up plot of Fig 7, exiting")
-    exit(1)
+    # print("[ERROR] No time in the result file for compiler %s and #procs = %s"%(config, procs))
+    # print("[ERROR] Cannot draw speed up plot of Fig 7, exiting")
+    # exit(1)
     return None
 
 def averageSpace(data, config, tag, procs):
@@ -177,6 +177,7 @@ print("[INFO] reading {}\n".format(resultsFile))
 with open(resultsFile, 'r') as data:
   resultsData = json_careful_readlines(data)
 D = [ parseStats(row) for row in resultsData ]
+P = sorted(list(foundProcs))
 
 # ===========================================================================
 
@@ -248,7 +249,7 @@ configs = ['java', 'go', 'mpl-cc']
 colors = ['green', 'red', 'blue', 'darkturquoise', 'black', 'darkviolet', 'goldenrod', 'dimgrey']
 markers = ['o','v','^','<','>','s','d','D']
 linestyles = ['solid', 'dashed']
-procs = [1,10,20,30,40,50,60,70]
+procs = P
 
 plt.figure(figsize=(6,6))
 
@@ -256,14 +257,34 @@ fontSize = 18
 legendFontSize = 14
 markerSize = 8
 
-baseline = min([averageAfterWarmup(c, 1) for c in configs])
+plt.plot(procs, procs, marker="", color="grey", linewidth=0.5)
 
 # baseline = averageAfterWarmup('mlton', 1)
 
-plt.plot(procs, procs, marker="", color="grey", linewidth=0.5)
 lines = []
+
+baseline = 1000000
+for c in configs:
+  tm = averageAfterWarmup(c, 1)
+  if tm != None:
+    baseline = min(baseline, tm)
+
+if baseline == 1000000:
+  print("[ERROR] None of the benchmarks completed for P = 1")
+  sys.exit(1)
+
+configsCompleted = []
 for (i, config) in enumerate(configs):
-  speedups = map(lambda p: baseline / averageAfterWarmup(config, p), procs)
+  speedups = []
+  p_completed = []
+  for p in procs:
+    avgtm = averageAfterWarmup(config, p)
+    if (avgtm != None):
+      speedups.append(baseline/avgtm)
+      p_completed.append(p)
+  if len(speedups)==0:
+    continue
+  configsCompleted.append(config)
   color = colors[i % len(colors)]
   marker = markers[i % len(markers)]
   linestyle = linestyles[i / len(markers)]
@@ -291,7 +312,7 @@ plt.xticks(procs, fontsize=fontSize)
 plt.gca().grid(axis='both', linestyle='dotted')
 plt.gca().set_axisbelow(True)
 # plt.margins(y=10)
-plt.legend([b[0] for b in lines], map(renameConfig, configs))
+plt.legend([b[0] for b in lines], map(renameConfig, configsCompleted))
 
 
 figFolder = "figures"
@@ -322,16 +343,93 @@ def display(x):
 
 tableFile = 'figures/shootout-table.tex'
 
-def makeTableRow(config):
-  c = config
-  row = [averageAfterWarmup(c, 1), averageAfterWarmup(c, 70), maxRes(c, 1), maxRes(c, 70)]
-  row = map(lambda x: display(x) if x is not None else "--", row)
-  row = [textsf(renameConfig(c))] + row
-  row = row if c != 'mpl-cc' else map(makeBold, row)
-  return " & ".join(row)
+maxp = max(P)
+delimWidth = 2
 
-with open(tableFile, 'w') as f:
-  for c in configs:
-    f.write(makeTableRow(c) + " \\\\\n")
+def makeline(row, widths, align):
+  bits = []
+  i = 0
+  while i < len(row):
+    j = i+1
+    while j < len(row) and (row[j] is None):
+      j += 1
+    availableWidth = sum(widths[i:j]) + delimWidth*(j-i-1)
+    s = str(row[i])
+    w = " " * (availableWidth - len(row[i]))
+    aa = align(i)
+    if aa == "l":
+      ln = s + w
+    elif aa == "r":
+      ln = w + s
+    elif aa == "c":
+      ln = w[:len(w)/2] + s + w[len(w)/2:]
+    else:
+      raise ValueError("invalid formatter: {}".format(aa))
+    bits.append(ln)
+    i = j
+  return (" " * delimWidth).join(bits)
 
-sys.stdout.write("[INFO] table rows written to {}\n".format(tableFile))
+def table(rows, align=None):
+  numCols = max(len(row) for row in rows if not isinstance(row, str))
+  widths = [0] * numCols
+  for row in rows:
+    # string rows are used for formatting
+    if isinstance(row, str):
+      continue
+
+    i = 0
+    while i < len(row):
+      j = i+1
+      while j < len(row) and (row[j] is None):
+        j += 1
+      # rw = len(stripANSI(str(row[i])))
+      # rw = len(str(row[i]))
+      rw = len(row[i])
+      for k in xrange(i, j):
+        w = (rw / (j-i)) + (1 if k < rw % (j-i) else 0)
+        widths[k] = max(widths[k], w)
+      i = j
+
+  totalWidth = sum(widths) + delimWidth*(numCols-1)
+
+  def aa(i):
+    try:
+      return align(i)
+    except:
+      return "l"
+
+  output = []
+  for row in rows:
+    if row == "-" or row == "=":
+      output.append(row * totalWidth)
+      continue
+    elif isinstance(row, str):
+      raise ValueError("bad row: {}".format(row))
+    output.append(makeline(row, widths, aa))
+
+  return "\n".join(output)
+
+header1 = ["", "Time(s)", "", "Space(GB)", ""]
+header2 = ["Compiler", "T_1", "T_{}".format(maxp), "R_1", "R_{}".format(maxp)]
+tt = [header1, header2, "="]
+for c in configs:
+  thisRow = [renameConfig(c),
+              averageAfterWarmup(c, 1),
+              averageAfterWarmup(c, maxp),
+              maxRes(c, 1),
+              maxRes(c, maxp),
+            ]
+  thisRow = [thisRow[0]] + [str(x) if x is not None else "--" for x in thisRow[1:]]
+  tt.append(thisRow)
+
+def defaultAlign(i):
+  return "r" if i == 0 else "l"
+
+print("SORTING COMPETITION")
+print(table(tt, defaultAlign))
+print("")
+# with open(tableFile, 'w') as f:
+#   for c in configs:
+#     f.write(makeTableRow(c) + " \\\\\n")
+
+# sys.stdout.write("[INFO] table rows written to {}\n".format(tableFile))
