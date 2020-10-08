@@ -293,7 +293,12 @@ plt.gca().set_axisbelow(True)
 # plt.margins(y=10)
 plt.legend([b[0] for b in lines], map(renameConfig, configs))
 
-outputName = 'figures/shootout-speedups.pdf'
+
+figFolder = "figures"
+if not os.path.exists(figFolder):
+  os.makedirs(figFolder)
+
+outputName = '%s/shootout-speedups.pdf'%figFolder
 plt.savefig(outputName, bbox_inches='tight')
 sys.stdout.write("[INFO] output written to {}\n".format(outputName))
 
