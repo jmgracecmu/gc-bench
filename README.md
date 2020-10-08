@@ -1,32 +1,6 @@
 # gc-bench
 Benchmarks for evaluating MPL performance.
 
-## Run
-
-Run all experiments for cores ranging from 1 to 70 with 10 core increments.
-By default, each benchmark is run once (with warmup).
-You can pass `--repeat N` to do `N` repetitions of each benchmark.
-```
-$ ./run
-```
-```
-$ ./run --repeat 10
-```
-Similar to the `run` script, there is a `run-cb` 
-script which only runs  the less memory hungry benchmarks on cores ranging from 1 to 7.
-
-Both the scripts produce a file `results/XXX` where `XXX` is the
-current date/time. The `report` script will print a summary of the results. 
-With no arguments, this selects the most recent results. Or, you can pick a
-particular file.
-
-```
-$ ./report
-```
-```
-$ ./report results/XXX
-```
-
 ## Organization?
 
 Here's how the repo is organized:
@@ -47,10 +21,17 @@ benchmark name (one of the subdirectories of `bench/`) and `CONFIG` is a
 compiler configuration (one of the files in `config/`).
 
 The top-level makefile takes a binary name, compiles it and puts the resulting
-binary in `bin/`. You can run a single benchmark this way, for example:
+binary in `bin/`. You can compile a single benchmark with different compilers this way, for example:
 ```
 $ make fib.mpl.bin
+$ make fib.mpl-cc.bin
+$ make fib.mlton.bin
+```
+For running them, execute
+```
 $ bin/fib.mpl.bin @mpl procs 4 -- -N 42
+$ bin/fib.mpl-cc.bin @mpl procs 4 -- -N 42
+$ bin/fib.mlton.bin -N 42
 ```
 
 
@@ -130,3 +111,29 @@ computes the suffix array of a uniformly random input text of 10M characters.
 ### Tokens
 separates a text into tokens, using whitespace as delimiters.
 The input text is approximately 60MB with 6.3M tokens.
+
+## Run
+
+Run all experiments for cores ranging from 1 to 70 with 10 core increments.
+By default, each benchmark is run once (with warmup).
+You can pass `--repeat N` to do `N` repetitions of each benchmark.
+```
+$ ./run
+```
+```
+$ ./run --repeat 10
+```
+Similar to the `run` script, there is a `run-cb` 
+script which only runs  the less memory hungry benchmarks on cores ranging from 1 to 7.
+
+Both the scripts produce a file `results/XXX` where `XXX` is the
+current date/time. The `report` script will print a summary of the results. 
+With no arguments, this selects the most recent results. Or, you can pick a
+particular file.
+
+```
+$ ./report
+```
+```
+$ ./report results/XXX
+```
