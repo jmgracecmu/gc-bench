@@ -724,6 +724,6 @@ if not os.path.exists(figFolder):
   os.makedirs(figFolder)
 
 outputName = '%s/mpl-cc-speedups.pdf'%figFolder
-plt.savefig(outputNamefigures, bbox_inches='tight')
+plt.savefig(outputName, bbox_inches='tight')
 sys.stdout.write("[INFO] output written to {}\n".format(outputName))
 
