@@ -674,6 +674,7 @@ plt.plot(procs, procs, marker="", color="grey", linewidth=0.5)
 lines = []
 
 speedupTags = [ t for t in orderedTags if "ocaml" not in t ]
+completedTags = []
 for (i, tag) in enumerate(speedupTags):
   baseline = averageTime(D, 'mlton', tag, 1)
   speedups = []
@@ -689,7 +690,9 @@ for (i, tag) in enumerate(speedupTags):
   color = colors[i % len(colors)]
   marker = markers[i % len(markers)]
   linestyle = linestyles[i / len(markers)]
+  completedTags.append(tag)
   lines.append(plt.plot(procs, speedups, linestyle=linestyle, marker=marker, markersize=markerSize, linewidth=1, color=color))
+
 
 # this sets the legend.
 font = {
@@ -713,9 +716,14 @@ plt.xticks(procs, fontsize=fontSize)
 plt.gca().grid(axis='both', linestyle='dotted')
 plt.gca().set_axisbelow(True)
 # plt.margins(y=10)
-plt.legend([b[0] for b in lines], speedupTags)
 
-outputName = 'figures/mpl-cc-speedups.pdf'
-plt.savefig(outputName, bbox_inches='tight')
+plt.legend([b[0] for b in lines], completedTags)
+
+figFolder = "figures"
+if not os.path.exists(figFolder):
+  os.makedirs(figFolder)
+
+outputName = '%s/mpl-cc-speedups.pdf'%figFolder
+plt.savefig(outputNamefigures, bbox_inches='tight')
 sys.stdout.write("[INFO] output written to {}\n".format(outputName))
 
