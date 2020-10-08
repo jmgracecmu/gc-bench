@@ -217,6 +217,9 @@ def averageTime(data, config, tag, procs):
     return None
 
 def averageSpace(data, config, tag, procs):
+  if (averageTime(data, config, tag, procs)) == None:
+    return None
+
   sp = [ r['space'] for r in findTrials(data, config, tag, procs) if 'space' in r ]
 
   if len(sp) > 10:
