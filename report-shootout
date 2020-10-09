@@ -288,7 +288,7 @@ for (i, config) in enumerate(configs):
   color = colors[i % len(colors)]
   marker = markers[i % len(markers)]
   linestyle = linestyles[i / len(markers)]
-  lines.append(plt.plot(procs, speedups, marker=marker, markersize=markerSize, linewidth=1, color=color, linestyle=linestyle))
+  lines.append(plt.plot(p_completed, speedups, marker=marker, markersize=markerSize, linewidth=1, color=color, linestyle=linestyle))
 
 # this sets the legend.
 font = {

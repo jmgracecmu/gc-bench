@@ -699,7 +699,7 @@ for (i, tag) in enumerate(speedupTags):
   marker = markers[i % len(markers)]
   linestyle = linestyles[i / len(markers)]
   completedTags.append(tag)
-  lines.append(plt.plot(procs, speedups, linestyle=linestyle, marker=marker, markersize=markerSize, linewidth=1, color=color))
+  lines.append(plt.plot(p_completed, speedups, linestyle=linestyle, marker=marker, markersize=markerSize, linewidth=1, color=color))
 
 
 # this sets the legend.
