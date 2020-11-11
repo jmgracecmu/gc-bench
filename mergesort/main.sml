@@ -62,7 +62,11 @@ in
   end
 end
 
+(* returns (i, j) where i + j = k and, when looking at the sorted output,
+*  seq1[i] comes right before seq2[j]
+*)
 fun bisplit seq1 seq2 k = bisplitRec seq1 seq2 k 0 0
+
 
 fun seqUpdate seq n x = ArraySlice.update (seq, n, x)
 
@@ -87,7 +91,56 @@ fun mergeLinearRec seq1 seq2 dest i1 i2 offset =
 
 fun mergeLinear seq1 seq2 dest = mergeLinearRec seq1 seq2 dest 0 0 0
 
+fun mergeLogHelp seq1 seq2 dest chunkSize =
+let
+  val numberProcs = (Seq.length seq1) div chunkSize + 1
+
+  (* TODO this function needs to work for the empty sequence *)
+  fun appToEachPosInSeq seq1 seq2 dest procId =
+  let
+    val low1 = procId * chunkSize
+    val hi1 = Int.min (low1 + chunkSize, Seq.length seq1)
+    val low2 = binarySearch seq2 (Seq.nth seq1 low1)
+    val hi2 = binarySearch seq2 (Seq.nth seq1 hi1)
+    val take1 = hi1 - low1
+    val take2 = hi2 - low2
+    val subseq1 = Seq.subseq seq1 (low1, take1)
+    val subseq2 = Seq.subseq seq2 (low2, take2)
+    val subdest = Seq.subseq dest (low1 + low2, take1 + take2)
+  in
+    if hi2 - low2 <= chunkSize then
+      mergeLinear subseq1 subseq2 subdest
+    else
+    let
+      val numberProcs2 = (Seq.length subseq2) div chunkSize + 1
+    in
+      (* appToEachPosInSeq will be called recursively at most once *)
+      mergeLogHelp subseq2 subseq1 subdest chunkSize
+    end
+  end
+  val emptySeq = Seq.fromList []
+  val leftEndMissedSeq2 = binarySearch seq2 (Seq.nth seq1 0)
+  val leftMissedSeq2 = Seq.subseq seq2 (0, leftEndMissedSeq2)
+  val rightStartMissedSeq2 = binarySearch seq2 (Seq.nth seq1 (Seq.length seq1 - 1))
+  val takeRight = Seq.length seq2 - rightStartMissedSeq2
+  val rightMissedSeq2 = Seq.subseq seq2 (rightStartMissedSeq2, takeRight)
+  val leftMissedDest = Seq.subseq dest (0, leftEndMissedSeq2)
+  val rightMissedDest = Seq.subseq dest (Seq.length dest - takeRight, leftEndMissedSeq2)
+  val gran = 1000
+in
+  appToEachPosInSeq leftMissedSeq2 emptySeq leftMissedDest 0;
+  appToEachPosInSeq rightMissedSeq2 emptySeq rightMissedDest 0;
+  ForkJoin.parfor gran (0, numberProcs) (appToEachPosInSeq seq1 seq2 dest)
+end
+
 fun mergeLog seq1 seq2 dest =
+let
+  val chunkSize = Real.floor (Math.ln (Real.fromInt (Seq.length dest)))
+in
+  mergeLogHelp seq1 seq2 dest chunkSize
+end
+
+fun mergeLogSquared seq1 seq2 dest =
 let
   val gran = 10000
   (*
@@ -144,8 +197,9 @@ fun mergeSortRec seq resultUp resultDown =
     val resultUpRight = Seq.subseq resultUp (firstHalfSize, secondHalfSize)
     val resultDownLeft = Seq.subseq resultDown (0, firstHalfSize)
     val resultDownRight = Seq.subseq resultDown (firstHalfSize, secondHalfSize)
-    val _ = mergeSortRec seqLeft resultDownLeft resultUpLeft
-    val _ = mergeSortRec seqRight resultDownRight resultUpRight
+    val left = fn _ => mergeSortRec seqLeft resultDownLeft resultUpLeft
+    val right = fn _ => mergeSortRec seqRight resultDownRight resultUpRight
+    val _ = ForkJoin.par (left, right)
   in
     if Seq.length resultDown < 100 then
       mergeLinear resultUpLeft resultUpRight resultDown
