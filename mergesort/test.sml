@@ -135,4 +135,5 @@ val _ = testMergeLinear1 ()
 val _ = testMergeLinear2 ()
 
 val _ = testMergeSort1 ()
+
 val _ = testMergeSort2 ()

@@ -94,14 +94,57 @@ fun mergeLinear seq1 seq2 dest = mergeLinearRec seq1 seq2 dest 0 0 0
 fun mergeLogHelp seq1 seq2 dest chunkSize =
 let
   val numberProcs = (Seq.length seq1) div chunkSize + 1
-
+  (*
+  val _ = print "called mergeLogHelp\n"
+  val _ = print (Seq.toString (fn x => Int.toString x) seq1);
+  val _ = print "\n"
+  val _ = print (Seq.toString (fn x => Int.toString x) seq2);
+  val _ = print "\n"
+  *)
   (* TODO this function needs to work for the empty sequence *)
   fun appToEachPosInSeq seq1 seq2 dest procId =
+    if procId * chunkSize >= Seq.length seq1 then () else 
   let
+    (*
+    val _ = print "called appToEachPosInSeq\n"
+    val _ = print "\nseq1: "
+    val _ = print (Seq.toString (fn x => Int.toString x) seq1)
+    val _ = print "\n"
+
+    val _ = print "seq2: "
+    val _ = print (Seq.toString (fn x => Int.toString x) seq2)
+    val _ = print "\n"
+    *)
+    val seq1e = (Seq.length seq1 = 0)
+
     val low1 = procId * chunkSize
+    (*
+    val _ = print "low1: "
+    val _ = print (Int.toString low1)
+    val _ = print "\n"
+    *)
     val hi1 = Int.min (low1 + chunkSize, Seq.length seq1)
-    val low2 = binarySearch seq2 (Seq.nth seq1 low1)
-    val hi2 = binarySearch seq2 (Seq.nth seq1 hi1)
+    (*
+    val _ = print "hi1: "
+    val _ = print (Int.toString hi1)
+    val _ = print "\n"
+    *)
+
+    val low2 = if seq1e then 0 else binarySearch seq2 (Seq.nth seq1 low1)
+    (*
+    val _ = print "low2: "
+    val _ = print (Int.toString low2)
+    val _ = print "\n"
+    *)
+
+    val hi2 = if seq1e then (Seq.length seq2) else binarySearch seq2 (Seq.nth
+    seq1 (hi1 - 1))
+    (*
+    val _ = print "hi2: "
+    val _ = print (Int.toString hi2)
+    val _ = print "\n"
+    *)
+
     val take1 = hi1 - low1
     val take2 = hi2 - low2
     val subseq1 = Seq.subseq seq1 (low1, take1)
@@ -109,33 +152,85 @@ let
     val subdest = Seq.subseq dest (low1 + low2, take1 + take2)
   in
     if hi2 - low2 <= chunkSize then
-      mergeLinear subseq1 subseq2 subdest
+      (mergeLinear subseq1 subseq2 subdest;
+      (*
+      print "appToEachPosInSeq returns: ";
+      print (Seq.toString (fn x => Int.toString x) subdest);
+      print "\n";
+      *)
+      ())
     else
     let
       val numberProcs2 = (Seq.length subseq2) div chunkSize + 1
     in
       (* appToEachPosInSeq will be called recursively at most once *)
-      mergeLogHelp subseq2 subseq1 subdest chunkSize
+      (mergeLogHelp subseq2 subseq1 subdest chunkSize;
+      (*
+      print "appToEachPosInSeq returns: ";
+      print (Seq.toString (fn x => Int.toString x) subdest);
+      print "\n";
+      *)
+      ())
     end
   end
   val emptySeq = Seq.fromList []
   val leftEndMissedSeq2 = binarySearch seq2 (Seq.nth seq1 0)
+  (*
+  val _ = print "leftEndMissedSeq2\n"
+  val _ = print (Int.toString leftEndMissedSeq2)
+  val _ = print "\n"
+  *)
+
   val leftMissedSeq2 = Seq.subseq seq2 (0, leftEndMissedSeq2)
+  (*
+  val _ = print "leftMissedSeq2\n"
+  val _ = print (Seq.toString (fn x => Int.toString x) leftMissedSeq2)
+  val _ = print "\n"
+  *)
+
   val rightStartMissedSeq2 = binarySearch seq2 (Seq.nth seq1 (Seq.length seq1 - 1))
+  (*
+  val _ = print "rightStartMissedSeq2\n"
+  val _ = print (Int.toString rightStartMissedSeq2)
+  val _ = print "\n"
+  *)
+
   val takeRight = Seq.length seq2 - rightStartMissedSeq2
+  (*
+  val _ = print "takeRight\n"
+  val _ = print (Int.toString takeRight)
+  val _ = print "\n"
+  *)
+
   val rightMissedSeq2 = Seq.subseq seq2 (rightStartMissedSeq2, takeRight)
+  (*
+  val _ = print "rightMissedSeq2\n"
+  val _ = print (Seq.toString (fn x => Int.toString x) rightMissedSeq2)
+  val _ = print "\n"
+  *)
+
   val leftMissedDest = Seq.subseq dest (0, leftEndMissedSeq2)
-  val rightMissedDest = Seq.subseq dest (Seq.length dest - takeRight, leftEndMissedSeq2)
+  val rightMissedDest = Seq.subseq dest (Seq.length dest - takeRight, takeRight)
   val gran = 1000
+
+  val numberProcsLeftMissed = Seq.length leftMissedDest div chunkSize + 1
+  val numberProcsRightMissed = Seq.length leftMissedDest div chunkSize + 1
 in
-  appToEachPosInSeq leftMissedSeq2 emptySeq leftMissedDest 0;
-  appToEachPosInSeq rightMissedSeq2 emptySeq rightMissedDest 0;
-  ForkJoin.parfor gran (0, numberProcs) (appToEachPosInSeq seq1 seq2 dest)
+  (ForkJoin.parfor gran (0, numberProcsLeftMissed) (appToEachPosInSeq
+  leftMissedSeq2 emptySeq leftMissedDest);
+  ForkJoin.parfor gran (0, numberProcsRightMissed) (appToEachPosInSeq
+  rightMissedSeq2 emptySeq rightMissedDest);
+  ForkJoin.parfor gran (0, numberProcs) (appToEachPosInSeq seq1 seq2 dest))
 end
 
 fun mergeLog seq1 seq2 dest =
 let
   val chunkSize = Real.floor (Math.ln (Real.fromInt (Seq.length dest)))
+  (*
+  val _ = print "chunk Size: "
+  val _ = print (Int.toString chunkSize)
+  val _ = print "\n"
+  *)
 in
   mergeLogHelp seq1 seq2 dest chunkSize
 end
