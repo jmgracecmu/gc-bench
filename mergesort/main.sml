@@ -299,7 +299,7 @@ fun mergeSortRec seq resultUp resultDown =
     if Seq.length resultDown < 100 then
       mergeLinear resultUpLeft resultUpRight resultDown
     else
-      mergeLog resultUpLeft resultUpRight resultDown
+      mergeLogSquared resultUpLeft resultUpRight resultDown
   end
 
 fun mergeSort seq =

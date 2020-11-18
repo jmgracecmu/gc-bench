@@ -20,10 +20,14 @@ let
   val size = 1000009
   val seq = Seq.tabulate (fn i => size - i - 1) size
   val answer = Seq.tabulate (fn i => i) size
+  val t1 = Time.now ()
   val sorted = mergeSort seq
+  val t2 = Time.now ()
+  val diff = Time.toReal (Time.- (t2, t1))
 in
   if Seq.equal (fn (x, y) => x = y) (sorted, answer) then
     (print "pass mergeSort2 seq\n";
+    print ("time: " ^ (Real.toString diff) ^ "\n");
     ())
   else
     (print "fail mergeSort2 seq\n";
