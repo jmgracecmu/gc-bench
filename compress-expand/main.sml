@@ -1,24 +1,63 @@
 
-
-
-
-datatype 'a Tree = Node of 'a Tree * 'a * 'a Tree | Leaf of 'a
+fun inorderRankUppass tree =
+let
+  fun makeData lchild rchild myData =
+  let
+    val (llsum, lrsum, _) = case lchild of
+                                 Leaf(data) => data
+                               | Node(_, data, _) => data
+    val (rlsum, rrsum, _) = case rchild of
+                                 Leaf(data) => data
+                               | Node(_, data, _) => data
+  in
+    (llsum + lrsum + 1, rlsum + rrsum + 1, 0)
+  end
+in
+  uppass tree makeData
+end
 
 (*
 * the type 'a will be (sum of left subtree, sum of right subtree, inorder rank)
-*
-*
 *)
 
-fun makeBinaryTree depth = 
-  case depth of
-       0 => Leaf((0, 0, 0))
-     | x =>
-         let
-           val data = (0, 0, 0)
-         in
-           Node(makeBinaryTree (x - 1), data, makeBinaryTree (x - 1))
-         end
+
+(*
+* The recursive invariant is that the inorder rank has already been computed
+* for the parent. 
+*)
+fun inorderRankDownpass tree =
+let
+  fun makeDataLChild myData parentData =
+  let
+    val numAboveAndLeft = #3 parentData - #1 parentData
+  in
+    (#1 myData, #2 myData, #1 myData + numAboveAndLeft)
+  end
+
+  fun makeDataRChild myData parentData =
+  let
+    val numAboveAndLeft = #3 parentData + 1
+  in
+    (#1 myData, #2 myData, #1 myData + numAboveAndLeft)
+  end
+
+  val nullData = (0,0,0)
+in
+  downpass makeDataLChild makeDataRChild tree nullData
+end
+
+fun inorderRank2 tree =
+let
+  val tree' = inorderRankUppass tree
+in
+  inorderRankDownpass tree'
+end
+
+(*
+*
+* below is the hard-coded implementation of in order rank, without the
+* abstraction of using up-passes and down-passes
+*)
 
 fun getChildSums tree =
   case tree of
@@ -38,40 +77,20 @@ fun getChildSums tree =
            Node(lchild', data', rchild')
          end
 
-fun print3Tuple tuple =
-let
-  val (x, y, z) = tuple
-in
-  print ("(" ^ (Int.toString x) ^ " " ^ (Int.toString y) ^ " " ^ (Int.toString
-  z) ^ ")")
-end
-
-fun printNTimes str n =
-  case n of
-       0 => ()
-     | n' => (print str; printNTimes str (n' - 1))
-
-fun printTree tree currDepth =
-  case tree of
-       Leaf(data) =>
-         (printNTimes " " currDepth; print3Tuple data; print "\n")
-     | Node(lchild, data, rchild) =>
-         (printTree rchild (currDepth + 1);
-         printNTimes " " currDepth; print3Tuple data; print "\n";
-         printTree lchild (currDepth + 1))
 
 fun getInorderRank tree =
 let
   val tree' = getChildSums tree
-  fun inorderRank tree numBeforeMe =
+  fun inorderRankRec tree numAboveAndLeft =
     case tree of
-         Leaf(_) => Leaf((0,0,numBeforeMe))
+         Leaf(_) => Leaf((0,0,numAboveAndLeft))
        | Node(lchild, data, rchild) =>
            let
-             val rchildNumBefore = (#1 data) + numBeforeMe + 1
-             val (lchild', rchild') = ForkJoin.par (fn _ => inorderRank lchild
-             numBeforeMe, fn _ => inorderRank rchild rchildNumBefore)
-             val data' = (#1 data, #2 data, (#1 data) + numBeforeMe)
+             val rchildNumAboveAndLeft = (#1 data) + numAboveAndLeft + 1
+             val (lchild', rchild') = ForkJoin.par (fn _ => inorderRankRec lchild
+             numAboveAndLeft, fn _ => inorderRankRec rchild
+             rchildNumAboveAndLeft)
+             val data' = (#1 data, #2 data, (#1 data) + numAboveAndLeft)
            in
              Node(lchild', data', rchild')
            end
@@ -80,16 +99,11 @@ in
        Leaf(_) => Leaf((0,0,0))
      | Node(lchild, data, rchild) =>
          let
-           val (lchild', rchild') = ForkJoin.par (fn _ => inorderRank lchild 0,
-           fn _ => inorderRank rchild (#1 data + 1))
+           val (lchild', rchild') = ForkJoin.par (fn _ => inorderRankRec lchild 0,
+           fn _ => inorderRankRec rchild (#1 data + 1))
            val data' = (#1 data, #2 data, #1 data)
          in
            Node(lchild', data', rchild')
          end
 end
 
-val tree = makeBinaryTree 2
-val _ = printTree tree 0
-val _ = print "\n"
-val tree' = getInorderRank tree
-val _ = printTree tree' 0
