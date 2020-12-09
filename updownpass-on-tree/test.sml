@@ -31,5 +31,5 @@ in
 end
 
 
-val (tree, _) = makeBinaryTree 2
+val tree = makeBinaryTree 2
 val _ = printTree tree 0

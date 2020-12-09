@@ -1,4 +1,4 @@
-(*
+
 fun inorderRankUppass tree =
 let
   fun makeData lchild rchild myData =
@@ -106,4 +106,4 @@ in
            Node(lchild', data', rchild')
          end
 end
-*)
+
